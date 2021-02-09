@@ -1,0 +1,25 @@
+Program     ::= ClassDec* eot
+ClassDec    ::= _class_ id _{_ Member* _}_
+Member      ::= (_public_ | _private_)? _static_? (_void_ id MethodDec | Type id (_;_ | MethodDec))
+MethodDec   ::= _(_ Parameters? _)_ _{_ Statement* _}_
+Type        ::= _int_ | _boolean_ | id | (_int_ | id) _[]_
+Parameters  ::= Type id (_,_ Type id)*
+Arguments   ::= Expression (_,_ Expression)*
+Reference   ::= (id | _this_) (_._ id)*
+Statement   ::= _{_ Statement* _}_
+              | _return_ Expression? _;_
+              | _if_ _(_ Expression _)_ Statement (_else_ Statement)?
+              | _while_ _(_ Expression _)_ Statement
+              // Black magic fuckery required to distinguish these last two (aka parsing them in
+              // the parseStatement function)
+              | Type id Assignment _;_
+              | Reference ( _(_ Arguments? _)_ | (_[_ Expression _]_)? Assignment ) _;_
+Assignment  ::= _=_ Expression
+Expression  ::= ( Reference ( _[_ Expression _]_ | _(_ Arguments? _)_ )?
+                | unop Expression
+                | _(_ Expression _)_
+                | _new_ ( _int_ _[_ Expression _]_ | id ( _()_ | _[_ Expression _]_ ) )
+                | num
+                | _true_
+                | _false_
+              ) (binop Expression)?
