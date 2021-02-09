@@ -78,11 +78,7 @@ public class Scanner implements Iterable<Token> {
                             long commentStartRow = line;
                             int commentStartCol = column;
                             while ((!possEnd || curChar != '/') && !eot) {
-                                if (curChar == '*') {
-                                    possEnd = true;
-                                } else {
-                                    possEnd = false;
-                                }
+                                possEnd = curChar == '*';
                                 skipIt();
                             }
                             if (eot) {
