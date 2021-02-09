@@ -15,7 +15,7 @@ public class Compiler {
             iStream = new FileInputStream(args[0]);
             ErrorReporter reporter = new ErrorReporter();
 
-            checkProgram(iStream, reporter);
+            testScanner(iStream, reporter);
             //testScanner(iStream, reporter);
 
         } catch (FileNotFoundException e) {

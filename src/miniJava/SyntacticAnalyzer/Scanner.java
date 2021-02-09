@@ -7,8 +7,6 @@ import java.util.Iterator;
 import miniJava.ErrorReporter;
 import miniJava.SyntacticAnalyzer.Token.Kind;
 
-// TODO Recognize strings
-
 public class Scanner implements Iterable<Token> {
     private InputStream iStream;
     private ErrorReporter reporter;
@@ -38,6 +36,9 @@ public class Scanner implements Iterable<Token> {
         StringBuilder curContents = new StringBuilder();
         Kind kind;
 
+        long initialLine = line;
+        int initialColumn = column;
+
         if (eot) {
             kind = Kind.EOT;
         } else if (Character.isAlphabetic(curChar)) {
@@ -63,6 +64,72 @@ public class Scanner implements Iterable<Token> {
         } else {
             switch (curChar) {
 
+                case '"': // String handling (drops the surrounding double quotes) 
+                    skipIt();
+                    boolean err = false;
+                    while (curChar != '"' && !eot && !err) {
+                        if (curChar == '\\') {
+                            skipIt();
+                            switch (curChar) {
+                                case 'b':
+                                    curContents.append('\b');
+                                    skipIt();
+                                    break;
+                                case 't':
+                                    curContents.append('\t');
+                                    skipIt();
+                                    break;
+                                case 'n':
+                                    curContents.append('\n');
+                                    skipIt();
+                                    break;
+                                case 'f':
+                                    curContents.append('\f');
+                                    skipIt();
+                                    break;
+                                case 'r':
+                                    curContents.append('\r');
+                                    skipIt();
+                                    break;
+                                case '"':
+                                    curContents.append('\"');
+                                    skipIt();
+                                    break;
+                                case '\'':
+                                    curContents.append('\'');
+                                    skipIt();
+                                    break;
+                                case '\\':
+                                    curContents.append('\\');
+                                    skipIt();
+                                    break;
+                                default:
+                                    curContents.append('\\');
+                                    takeIt(curContents);
+                                    scanError(String.format(
+                                            "Invalid escape sequence at <%d:%d> in the "
+                                                    + "string literal starting at <%d:%d>%n"
+                                                    + "Valid escape sequences include \\b, \\t, "
+                                                    + "\\n, \\f, \\r, \\\", \\\', and \\\\",
+                                            line, column - 1, initialLine, initialColumn));
+                                    kind = Kind.ERROR;
+                                    err = true;
+                                    break;
+                            }
+                        } else {
+                            takeIt(curContents);
+                        }
+                    }
+                    if (eot) {
+                        scanError(String.format("Unclosed string literal starting at <%d:%d>",
+                                initialLine, initialColumn));
+                        kind = Kind.ERROR;
+                    } else {
+                        skipIt();
+                        kind = Kind.STRING;
+                    }
+                    break;
+
                 case '/': // Comment handling (as well as division token)
                     takeIt(curContents);
                     switch (curChar) {
@@ -77,8 +144,6 @@ public class Scanner implements Iterable<Token> {
                         case '*':
                             // We're in a block comment, so skip to end of block and call again
                             boolean possEnd = false;
-                            long commentStartRow = line;
-                            int commentStartCol = column;
                             while ((!possEnd || curChar != '/') && !eot) {
                                 if (curChar == '*') {
                                     possEnd = true;
@@ -88,9 +153,9 @@ public class Scanner implements Iterable<Token> {
                                 skipIt();
                             }
                             if (eot) {
-                                scanError(String.format(
-                                        "Unclosed block comment starting at <%d:%d>",
-                                        commentStartRow, commentStartCol));
+                                scanError(
+                                        String.format("Unclosed block comment starting at <%d:%d>",
+                                                initialLine, initialColumn));
                                 kind = Kind.ERROR;
                                 curContents.setLength(0);
                             } else {
@@ -187,7 +252,7 @@ public class Scanner implements Iterable<Token> {
             }
         }
 
-        nextToken = new Token(kind, curContents.toString(), line, column - curContents.length());
+        nextToken = new Token(kind, curContents.toString(), initialLine, initialColumn);
     }
 
     @Override

@@ -1,11 +1,11 @@
-class Test1 { // This is a line comment
+class TestStrings { // This is a line comment
     public int int1;
     public static Test1[] reference;
 
     private void hello(int i, Foo bar) {
         bar.t1 = i < i + 1;
-        // In order: backspace, tab, newline, form feed, carriage return
-        String testString = "\b\t\n\f\r\"\'\\"; // Not yet incorporating Unicode literals
+        // In order: carriage return, backspace, tab, newline, form feed
+        String testString = "\r\b\t\n\f\"\'\\"; // Not yet incorporating Unicode literals
         /* This is a block comment
         bar.t2 = */ bar.t2 = i >= i + 13;
     }
