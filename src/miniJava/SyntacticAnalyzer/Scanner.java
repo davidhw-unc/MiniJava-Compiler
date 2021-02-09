@@ -7,6 +7,8 @@ import java.util.Iterator;
 import miniJava.ErrorReporter;
 import miniJava.SyntacticAnalyzer.Token.Kind;
 
+// TODO Recognize strings
+
 public class Scanner implements Iterable<Token> {
     private InputStream iStream;
     private ErrorReporter reporter;

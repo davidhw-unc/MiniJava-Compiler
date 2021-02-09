@@ -7,6 +7,8 @@ import java.util.Arrays;
 import miniJava.ErrorReporter;
 import miniJava.SyntacticAnalyzer.Token.Kind;
 
+// TODO Parse STRING tokens
+
 public class Parser {
     private Scanner scan;
     private ErrorReporter reporter;

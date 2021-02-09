@@ -2,7 +2,7 @@ package miniJava.SyntacticAnalyzer;
 
 public class Token {
     public enum Kind {
-        ID, NUM,
+        ID, NUM, STRING,
 
         CLASS, VOID, PUBLIC, PRIVATE, INT, BOOLEAN, THIS, RETURN, IF, ELSE, WHILE, NEW, TRUE, FALSE,
         STATIC,
