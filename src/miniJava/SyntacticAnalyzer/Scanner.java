@@ -74,6 +74,7 @@ public class Scanner implements Iterable<Token> {
                             return;
                         case '*':
                             // We're in a block comment, so skip to end of block and call again
+                            skipIt();
                             boolean possEnd = false;
                             long commentStartRow = line;
                             int commentStartCol = column;
