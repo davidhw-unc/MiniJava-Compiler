@@ -126,6 +126,12 @@ public class Parser {
                         parseAssignment();
                     } else {
                         if (acceptOpt(DOT) != null) { // Must still be in a reference
+                            // Special case: don't allow the next token to be THIS
+                            if (scan.peek().kind == THIS) {
+                                throw parseError(
+                                        String.format("Expected ID but found THIS at <%d:%d>",
+                                                scan.peek().line, scan.peek().startColumn));
+                            }
                             parseReference();
                         }
                         // Must have reached the end of the reference
