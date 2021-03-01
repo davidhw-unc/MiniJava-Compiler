@@ -118,12 +118,21 @@ public class Parser {
                     break;
                 case THIS:
                     parseReference();
-                    if (scan.peek().kind == LBRACKET) {
-                        accept(LBRACKET);
-                        parseExpression();
-                        accept(RBRACKET);
+                    if (acceptOpt(LPAREN) != null) {
+                        // Function call
+                        if (acceptOpt(RPAREN) == null) {
+                            parseArguments();
+                            accept(RPAREN);
+                        }
+                    } else {
+                        // Array access w/ assignment
+                        if (scan.peek().kind == LBRACKET) {
+                            accept(LBRACKET);
+                            parseExpression();
+                            accept(RBRACKET);
+                        }
+                        parseAssignment();
                     }
-                    parseAssignment();
                     break;
                 case ID:
                     accept(ID);
@@ -152,7 +161,7 @@ public class Parser {
                         }
                         // Must have reached the end of the reference
                         if (foundLBforReference || acceptOpt(LBRACKET) != null) {
-                            // Array indexing followed by assignment
+                            // Array access w/ assignment
                             parseExpression();
                             accept(RBRACKET);
                             parseAssignment();
@@ -163,7 +172,7 @@ public class Parser {
                                 accept(RPAREN);
                             }
                         } else {
-                            // Regular reference followed by assignment
+                            // Regular reference w/ assignment
                             parseAssignment();
                         }
                     }
