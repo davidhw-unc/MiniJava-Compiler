@@ -118,19 +118,50 @@ public class Parser {
                     break;
                 case THIS:
                     parseReference();
-                    parseAssignment();
+                    if (acceptOpt(LPAREN) != null) {
+                        // Function call
+                        if (acceptOpt(RPAREN) == null) {
+                            parseArguments();
+                            accept(RPAREN);
+                        }
+                    } else {
+                        // Array access w/ assignment
+                        if (scan.peek().kind == LBRACKET) {
+                            accept(LBRACKET);
+                            parseExpression();
+                            accept(RBRACKET);
+                        }
+                        parseAssignment();
+                    }
                     break;
                 case ID:
                     accept(ID);
-                    if (acceptOpt(ID) != null) { // Must have been a type
+                    boolean foundLBforReference = false, foundLBforType = false;
+                    if (acceptOpt(LBRACKET) != null) { // Can either be a Type or a Reference 
+                        if (acceptOpt(RBRACKET) != null) { // Must be a Type
+                            foundLBforType = true;
+                            accept(ID);
+                        } else {
+                            foundLBforReference = true;
+                        }
+                    }
+                    if (foundLBforType || (!foundLBforReference && acceptOpt(ID) != null)) {
+                        // Must have been a Type
                         parseAssignment();
                     } else {
-                        if (acceptOpt(DOT) != null) { // Must still be in a reference
+                        if (!foundLBforReference && acceptOpt(DOT) != null) {
+                            // Must still be in a reference
+                            if (scan.peek().kind == THIS) {
+                                // Special case: don't allow the next token to be THIS
+                                throw parseError(
+                                        String.format("Expected ID but found THIS at <%d:%d>",
+                                                scan.peek().line, scan.peek().startColumn));
+                            }
                             parseReference();
                         }
                         // Must have reached the end of the reference
-                        if (acceptOpt(LBRACKET) != null) {
-                            // Array indexing followed by assignment
+                        if (foundLBforReference || acceptOpt(LBRACKET) != null) {
+                            // Array access w/ assignment
                             parseExpression();
                             accept(RBRACKET);
                             parseAssignment();
@@ -141,7 +172,7 @@ public class Parser {
                                 accept(RPAREN);
                             }
                         } else {
-                            // Regular reference followed by assignment
+                            // Regular reference w/ assignment
                             parseAssignment();
                         }
                     }
