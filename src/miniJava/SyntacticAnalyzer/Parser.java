@@ -118,6 +118,11 @@ public class Parser {
                     break;
                 case THIS:
                     parseReference();
+                    if (scan.peek().kind == LBRACKET) {
+                        accept(LBRACKET);
+                        parseExpression();
+                        accept(RBRACKET);
+                    }
                     parseAssignment();
                     break;
                 case ID:
