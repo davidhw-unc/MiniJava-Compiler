@@ -401,7 +401,7 @@ public class Parser {
     private Expression parseExprK() throws SyntaxException {
         Token oper = scan.peek();
         if (acceptOpt(MINUS, NOT) != null) {
-            return new UnaryExpr(new Operator(oper), parseExprBase(), oper.posn);
+            return new UnaryExpr(new Operator(oper), parseExprK(), oper.posn);
         } else {
             return parseExprBase();
         }
