@@ -1,12 +1,13 @@
 package miniJava;
 
+import static miniJava.SyntacticAnalyzer.Token.Kind.*;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
-import static miniJava.SyntacticAnalyzer.Token.Kind.*;
 
 public class Compiler {
     public static void main(String[] args) {
