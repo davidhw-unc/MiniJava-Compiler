@@ -140,6 +140,7 @@ public class Parser {
     private ExprList parseArgumentsForCall() throws SyntaxException {
         ExprList args = new ExprList();
         if (scan.peek().kind != RPAREN) {
+            args.add(parseExpression());
             while (acceptOpt(COMMA) != null) {
                 args.add(parseExpression());
             }
@@ -147,200 +148,191 @@ public class Parser {
         return args;
     }
 
-    @SuppressWarnings("incomplete-switch")
     private Reference parseReference() throws SyntaxException {
-        Reference ref = null;
-        Token original = scan.peek();
-        switch (accept(ID, THIS)) {
-            case ID:
-                ref = new IdRef(new Identifier(original), original.posn);
-                break;
-            case THIS:
-                ref = new ThisRef(original.posn);
-                break;
+        return parseReference(null);
+    }
+
+    @SuppressWarnings("incomplete-switch")
+    private Reference parseReference(Reference startingRef) throws SyntaxException {
+        Reference ref = startingRef;
+        SourcePosition posn;
+        if (ref == null) {
+            Token original = scan.peek();
+            posn = original.posn;
+            switch (accept(ID, THIS)) {
+                case ID:
+                    ref = new IdRef(new Identifier(original), posn);
+                    break;
+                case THIS:
+                    ref = new ThisRef(posn);
+                    break;
+            }
+        } else {
+            posn = startingRef.posn;
         }
         while (acceptOpt(DOT) != null) {
             Token prev = scan.peek();
             accept(ID);
-            ref = new QualRef(ref, new Identifier(prev), original.posn);
+            ref = new QualRef(ref, new Identifier(prev), posn);
         }
         return ref;
     }
 
     @SuppressWarnings("incomplete-switch")
     private Statement parseStatement() throws SyntaxException {
+        Token first = scan.peek();
+        Statement stmt = null;
         Kind firstKind = acceptOpt(LBRACE, RETURN, IF, WHILE);
         if (firstKind == null) {
             switch (scan.peek().kind) {
                 case INT:
                 case BOOLEAN:
-                    parseType();
+                    // Variable declaration of int, boolean, or int[]
+                    TypeDenoter type = parseType();
+                    Token id = scan.peek();
                     accept(ID);
-                    parseAssignment();
+                    accept(ASSIGN);
+                    stmt = new VarDeclStmt(new VarDecl(type, id.spelling, first.posn),
+                            parseExpression(), first.posn);
                     break;
                 case THIS:
-                    parseReference();
+                    // Reference-based statements starting with "this"
+                    Reference ref = parseReference();
                     if (acceptOpt(LPAREN) != null) {
                         // Function call
-                        if (acceptOpt(RPAREN) == null) {
-                            parseArgumentsForCall();
-                            accept(RPAREN);
-                        }
+                        stmt = new CallStmt(ref, parseArgumentsForCall(), first.posn);
+                        accept(RPAREN);
                     } else {
-                        // Array access w/ assignment
-                        if (scan.peek().kind == LBRACKET) {
-                            accept(LBRACKET);
-                            parseExpression();
+                        // Assignment
+                        if (acceptOpt(LBRACKET) != null) {
+                            // Array element assignment
+                            Expression ixExpr = parseExpression();
                             accept(RBRACKET);
+                            accept(ASSIGN);
+                            stmt = new IxAssignStmt(ref, ixExpr, parseExpression(), first.posn);
+                        } else {
+                            // Normal assignment
+                            accept(ASSIGN);
+                            stmt = new AssignStmt(ref, parseExpression(), first.posn);
                         }
-                        parseAssignment();
                     }
                     break;
                 case ID:
                     accept(ID);
-                    boolean foundLBforReference = false, foundLBforType = false;
-                    if (acceptOpt(LBRACKET) != null) { // Can either be a Type or a Reference 
-                        if (acceptOpt(RBRACKET) != null) { // Must be a Type
-                            foundLBforType = true;
+
+                    // First, check the two cases where we start with an ID followed by an LBRACKET
+                    if (acceptOpt(LBRACKET) != null) {
+                        // Can either be a Type or a Reference
+                        if (acceptOpt(RBRACKET) != null) {
+                            // Must be an object array Type
+                            Token objID = scan.peek();
                             accept(ID);
+                            TypeDenoter t = new ArrayType(
+                                    new ClassType(new Identifier(first), first.posn), first.posn);
+                            accept(ASSIGN);
+                            stmt = new VarDeclStmt(new VarDecl(t, objID.spelling, first.posn),
+                                    parseExpression(), first.posn);
+                            break; // Leave the switch statement
                         } else {
-                            foundLBforReference = true;
-                        }
-                    }
-                    if (foundLBforType || (!foundLBforReference && acceptOpt(ID) != null)) {
-                        // Must have been a Type
-                        parseAssignment();
-                    } else {
-                        if (!foundLBforReference && acceptOpt(DOT) != null) {
-                            // Must still be in a reference
-                            if (scan.peek().kind == THIS) {
-                                // Special case: don't allow the next token to be THIS
-                                throw parseError(String.format("Expected ID but found THIS at %s",
-                                        scan.peek().posn));
-                            }
-                            parseReference();
-                        }
-                        // Must have reached the end of the reference
-                        if (foundLBforReference || acceptOpt(LBRACKET) != null) {
-                            // Array access w/ assignment
-                            parseExpression();
+                            // Must be a reference for an array assignment
+                            Reference refr = new IdRef(new Identifier(first), first.posn);
+                            Expression ixExpr = parseExpression();
                             accept(RBRACKET);
-                            parseAssignment();
-                        } else if (acceptOpt(LPAREN) != null) {
-                            // Function call
-                            if (acceptOpt(RPAREN) == null) {
-                                parseArgumentsForCall();
-                                accept(RPAREN);
-                            }
-                        } else {
-                            // Regular reference w/ assignment
-                            parseAssignment();
+                            accept(ASSIGN);
+                            stmt = new IxAssignStmt(refr, ixExpr, parseExpression(), first.posn);
+                            break; // Leave the switch statement
                         }
                     }
+
+                    Token potentialID = scan.peek();
+                    if (acceptOpt(ID) != null) {
+                        // Must have been a Type for declaring a new local variable
+                        accept(ASSIGN);
+                        stmt = new VarDeclStmt(
+                                new VarDecl(new ClassType(new Identifier(first), first.posn),
+                                        potentialID.spelling, first.posn),
+                                parseExpression(), first.posn);
+                        break; // Leave the switch statement
+                    }
+
+                    // Get the rest of the reference
+                    Reference refr = new IdRef(new Identifier(first), first.posn);
+                    if (scan.peek().kind == DOT) {
+                        // If there's a dot operator, continue parsing the reference
+                        refr = parseReference(refr);
+                    }
+
+                    // Handle the array assignment case
+                    if (acceptOpt(LBRACKET) != null) {
+                        Expression ixExpr = parseExpression();
+                        accept(RBRACKET);
+                        accept(ASSIGN);
+                        stmt = new IxAssignStmt(refr, ixExpr, parseExpression(), first.posn);
+                        break; // Leave the switch statement
+                    }
+
+                    // Handle the function call case
+                    if (acceptOpt(LPAREN) != null) {
+                        stmt = new CallStmt(refr, parseArgumentsForCall(), first.posn);
+                        accept(RPAREN);
+                        break; // Leave the switch statement
+                    }
+
+                    // If none of the special cases apply, it's just a regular variable assignment
+                    accept(ASSIGN);
+                    stmt = new AssignStmt(refr, parseExpression(), first.posn);
                     break;
             }
             accept(SEMICOLON);
         } else {
             switch (firstKind) {
                 case LBRACE:
+                    // Block statement
+                    StatementList sList = new StatementList();
                     while (acceptOpt(RBRACE) == null) {
-                        parseStatement();
+                        sList.add(parseStatement());
                     }
+                    stmt = new BlockStmt(sList, first.posn);
                     break;
                 case RETURN:
+                    // Return statement
+                    Expression expr = null;
                     if (acceptOpt(SEMICOLON) == null) {
-                        parseExpression();
+                        expr = parseExpression();
                         accept(SEMICOLON);
                     }
+                    stmt = new ReturnStmt(expr, first.posn);
                     break;
                 case IF:
+                    // If(/else) statement
                     accept(LPAREN);
-                    parseExpression();
+                    Expression cond = parseExpression();
                     accept(RPAREN);
-                    parseStatement();
+                    Statement thenStmt = parseStatement();
                     if (acceptOpt(ELSE) != null) {
-                        parseStatement();
+                        stmt = new IfStmt(cond, thenStmt, parseStatement(), first.posn);
+                    } else {
+                        stmt = new IfStmt(cond, thenStmt, first.posn);
                     }
                     break;
                 case WHILE:
+                    // While loop
                     accept(LPAREN);
-                    parseExpression();
+                    Expression condi = parseExpression();
                     accept(RPAREN);
-                    parseStatement();
+                    stmt = new WhileStmt(condi, parseStatement(), first.posn);
                     break;
             }
         }
+        return stmt;
     }
 
+    /*
     private void parseAssignment() throws SyntaxException {
         accept(ASSIGN);
         parseExpression();
     }
-
-    @SuppressWarnings("incomplete-switch")
-    private Expression parseExpressionOld() throws SyntaxException {
-        Token firstToken = scan.peek();
-        Expression expr = null;
-
-        Kind firstKind = acceptOpt(NOT, MINUS, LPAREN, NEW, NUM, TRUE, FALSE);
-        if (firstKind == null) {
-            Reference ref = parseReference();
-            if (acceptOpt(Kind.LBRACKET) != null) {
-                // Array access
-                expr = new IxExpr(ref, parseExpression(), firstToken.posn);
-                accept(Kind.RBRACKET);
-            } else if (acceptOpt(Kind.LPAREN) != null) {
-                // Function call
-                if (acceptOpt(Kind.RPAREN) == null) {
-                    expr = new CallExpr(ref, parseArgumentsForCall(), firstToken.posn);
-                    accept(Kind.RPAREN);
-                }
-            } else {
-                // Just a reference
-                expr = new RefExpr(ref, firstToken.posn);
-            }
-        } else {
-            switch (firstKind) {
-                case NOT:
-                case MINUS:
-                    parseExpression();
-                    break;
-                case LPAREN:
-                    parseExpression();
-                    accept(RPAREN);
-                    break;
-                case NEW:
-                    if (acceptOpt(Kind.INT) != null) {
-                        accept(Kind.LBRACKET);
-                        parseExpression();
-                        accept(Kind.RBRACKET);
-                    } else {
-                        accept(Kind.ID);
-                        if (acceptOpt(Kind.LPAREN) != null) {
-                            accept(Kind.RPAREN);
-                        } else {
-                            accept(Kind.LBRACKET);
-                            parseExpression();
-                            accept(Kind.RBRACKET);
-                        }
-                    }
-                    break;
-                case NUM:
-                case TRUE:
-                case FALSE:
-                    break;
-            }
-        }
-        // Handle binary operators
-        Token oper = scan.peek();
-        if (acceptOpt(Kind.GREATER_THAN, Kind.LESS_THAN, Kind.EQUAL_TO, Kind.LESS_EQUAL,
-                Kind.GREATER_EQUAL, Kind.NOT_EQUAL, Kind.AND, Kind.OR, Kind.PLUS, Kind.MINUS,
-                Kind.MULTIPLY, Kind.DIVIDE) != null) {
-            parseExpression();
-        }
-
-        return null;
-    }
+    */
 
     // ------------------
     // Expression parsing
@@ -435,10 +427,8 @@ public class Parser {
                 accept(Kind.RBRACKET);
             } else if (acceptOpt(Kind.LPAREN) != null) {
                 // Function call
-                if (acceptOpt(Kind.RPAREN) == null) {
-                    expr = new CallExpr(ref, parseArgumentsForCall(), first.posn);
-                    accept(Kind.RPAREN);
-                }
+                expr = new CallExpr(ref, parseArgumentsForCall(), first.posn);
+                accept(Kind.RPAREN);
             } else {
                 // Just a reference
                 expr = new RefExpr(ref, first.posn);
@@ -485,9 +475,7 @@ public class Parser {
                     break;
             }
         }
-
-        // TODO this
-        return null;
+        return expr;
     }
 
     /*----------------------------------------------------*

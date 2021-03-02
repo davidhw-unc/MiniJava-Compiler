@@ -7,15 +7,15 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public class WhileStmt extends Statement
-{
-    public WhileStmt(Expression e, Statement s, SourcePosition posn){
+public class WhileStmt extends Statement {
+    public WhileStmt(Expression e, Statement s, SourcePosition posn) {
         super(posn);
         cond = e;
         body = s;
     }
-        
-    public <A,R> R visit(Visitor<A,R> v, A o) {
+
+    @Override
+    public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitWhileStmt(this, o);
     }
 
