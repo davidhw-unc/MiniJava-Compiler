@@ -327,13 +327,6 @@ public class Parser {
         return stmt;
     }
 
-    /*
-    private void parseAssignment() throws SyntaxException {
-        accept(ASSIGN);
-        parseExpression();
-    }
-    */
-
     // ------------------
     // Expression parsing
     // ------------------
@@ -352,10 +345,10 @@ public class Parser {
     // && (binary)
     private Expression parseExprF() throws SyntaxException {
         Token start = scan.peek();
-        Expression expr = parseExprF();
+        Expression expr = parseExprG();
         Token oper = scan.peek();
         if (acceptOpt(AND) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper), expr, parseExprG(), start.posn);
         }
         return expr;
     }
@@ -363,10 +356,10 @@ public class Parser {
     // == != (binary)
     private Expression parseExprG() throws SyntaxException {
         Token start = scan.peek();
-        Expression expr = parseExprF();
+        Expression expr = parseExprH();
         Token oper = scan.peek();
         if (acceptOpt(EQUAL_TO, NOT_EQUAL) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper), expr, parseExprH(), start.posn);
         }
         return expr;
     }
@@ -374,10 +367,10 @@ public class Parser {
     // <= < > >= (binary)
     private Expression parseExprH() throws SyntaxException {
         Token start = scan.peek();
-        Expression expr = parseExprF();
+        Expression expr = parseExprI();
         Token oper = scan.peek();
         if (acceptOpt(LESS_EQUAL, LESS_THAN, GREATER_THAN, GREATER_EQUAL) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper), expr, parseExprI(), start.posn);
         }
         return expr;
     }
@@ -385,10 +378,10 @@ public class Parser {
     // + - (binary)
     private Expression parseExprI() throws SyntaxException {
         Token start = scan.peek();
-        Expression expr = parseExprF();
+        Expression expr = parseExprJ();
         Token oper = scan.peek();
         if (acceptOpt(PLUS, MINUS) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper), expr, parseExprJ(), start.posn);
         }
         return expr;
     }
@@ -396,10 +389,10 @@ public class Parser {
     // * / (binary)
     private Expression parseExprJ() throws SyntaxException {
         Token start = scan.peek();
-        Expression expr = parseExprF();
+        Expression expr = parseExprK();
         Token oper = scan.peek();
         if (acceptOpt(MULTIPLY, DIVIDE) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper), expr, parseExprK(), start.posn);
         }
         return expr;
     }
@@ -408,12 +401,13 @@ public class Parser {
     private Expression parseExprK() throws SyntaxException {
         Token oper = scan.peek();
         if (acceptOpt(MINUS, NOT) != null) {
-            return new UnaryExpr(new Operator(oper), parseExprK(), oper.posn);
+            return new UnaryExpr(new Operator(oper), parseExprBase(), oper.posn);
         } else {
             return parseExprBase();
         }
     }
 
+    @SuppressWarnings("incomplete-switch")
     private Expression parseExprBase() throws SyntaxException {
         Token first = scan.peek();
         Expression expr = null;
