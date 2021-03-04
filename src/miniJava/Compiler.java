@@ -1,12 +1,15 @@
 package miniJava;
 
+import static miniJava.SyntacticAnalyzer.Token.Kind.*;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
+import miniJava.AbstractSyntaxTrees.AST;
+import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
-import static miniJava.SyntacticAnalyzer.Token.Kind.*;
 
 public class Compiler {
     public static void main(String[] args) {
@@ -15,7 +18,7 @@ public class Compiler {
             iStream = new FileInputStream(args[0]);
             ErrorReporter reporter = new ErrorReporter();
 
-            checkProgram(iStream, reporter);
+            runParser(iStream, reporter);
             //testScanner(iStream, reporter);
 
         } catch (FileNotFoundException e) {
@@ -28,17 +31,19 @@ public class Compiler {
     }
 
     @SuppressWarnings("unused")
-    private static void checkProgram(InputStream iStream, ErrorReporter reporter) {
-        new Parser(new Scanner(iStream, reporter), reporter).parse();
+    private static void runParser(InputStream iStream, ErrorReporter reporter) {
+        Parser parser = new Parser(new Scanner(iStream, reporter), reporter);
+        AST ast = parser.parse();
+
         if (reporter.hasErrors()) {
             System.out.println("INVALID miniJava program");
-            // return code for invalid input
             System.exit(4);
-        } else {
-            System.out.println("valid miniJava program");
-            // return code for valid input
-            System.exit(0);
         }
+
+        System.out.println("valid miniJava program");
+        ASTDisplay display = new ASTDisplay();
+        display.showTree(ast);
+        System.exit(0);
     }
 
     @SuppressWarnings("unused")
