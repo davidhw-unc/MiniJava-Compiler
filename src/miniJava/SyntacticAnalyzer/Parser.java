@@ -411,7 +411,7 @@ public class Parser {
     private Expression parseExprBase() throws SyntaxException {
         Token first = scan.peek();
         Expression expr = null;
-        Kind firstKind = acceptOpt(LPAREN, NEW, NUM, TRUE, FALSE);
+        Kind firstKind = acceptOpt(LPAREN, NEW, NUM, TRUE, FALSE, NULL);
         if (firstKind == null) {
             // Must be a Reference
             Reference ref = parseReference();
@@ -467,6 +467,8 @@ public class Parser {
                 case FALSE:
                     expr = new LiteralExpr(new BooleanLiteral(first), first.posn);
                     break;
+                case NULL:
+                    expr = new NullExpr(first.posn);
             }
         }
         return expr;

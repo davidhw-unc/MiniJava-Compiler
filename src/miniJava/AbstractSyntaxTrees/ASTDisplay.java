@@ -336,6 +336,12 @@ public class ASTDisplay implements Visitor<String, Object> {
         return null;
     }
 
+    @Override
+    public Object visitNullExpr(NullExpr n, String arg) {
+        show(arg, n);
+        return null;
+    }
+
     ///////////////////////////////////////////////////////////////////////////////
     //
     // REFERENCES
