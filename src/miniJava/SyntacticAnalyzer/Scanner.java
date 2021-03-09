@@ -1,5 +1,7 @@
 package miniJava.SyntacticAnalyzer;
 
+import static miniJava.SyntacticAnalyzer.Token.Kind.*;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -44,14 +46,56 @@ public class Scanner implements Iterable<Token> {
             } while (Character.isAlphabetic(curChar) || Character.isDigit(curChar)
                     || curChar == '_');
             String contents = curContents.toString();
-            try {
-                if (contents.equals(contents.toLowerCase())) {
-                    kind = Kind.valueOf(curContents.toString().toUpperCase());
-                } else {
-                    kind = Kind.ID;
-                }
-            } catch (IllegalArgumentException e) {
-                kind = Kind.ID;
+
+            switch (contents) {
+                case "class":
+                    kind = CLASS;
+                    break;
+                case "void":
+                    kind = VOID;
+                    break;
+                case "public":
+                    kind = PUBLIC;
+                    break;
+                case "private":
+                    kind = PRIVATE;
+                    break;
+                case "static":
+                    kind = STATIC;
+                    break;
+                case "int":
+                    kind = INT;
+                    break;
+                case "boolean":
+                    kind = BOOLEAN;
+                    break;
+                case "this":
+                    kind = THIS;
+                    break;
+                case "return":
+                    kind = RETURN;
+                    break;
+                case "if":
+                    kind = IF;
+                    break;
+                case "else":
+                    kind = ELSE;
+                    break;
+                case "while":
+                    kind = WHILE;
+                    break;
+                case "true":
+                    kind = TRUE;
+                    break;
+                case "false":
+                    kind = FALSE;
+                    break;
+                case "new":
+                    kind = NEW;
+                    break;
+                default:
+                    kind = ID;
+                    break;
             }
         } else if (Character.isDigit(curChar)) {
             kind = Kind.NUM;
@@ -83,9 +127,9 @@ public class Scanner implements Iterable<Token> {
                                 skipIt();
                             }
                             if (eot) {
-                                scanError(String.format(
-                                        "Unclosed block comment starting at <%d:%d>",
-                                        commentStartRow, commentStartCol));
+                                scanError(
+                                        String.format("Unclosed block comment starting at <%d:%d>",
+                                                commentStartRow, commentStartCol));
                                 kind = Kind.ERROR;
                                 curContents.setLength(0);
                             } else {
