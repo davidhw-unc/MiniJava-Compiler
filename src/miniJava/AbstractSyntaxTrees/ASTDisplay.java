@@ -20,7 +20,7 @@ package miniJava.AbstractSyntaxTrees;
  */
 public class ASTDisplay implements Visitor<String, Object> {
 
-    public static boolean showPosition = false;
+    public static boolean showPosition = true;
 
     /**
      * print text representation of AST to stdout
@@ -172,7 +172,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitClassType(ClassType ct, String arg) {
         show(arg, ct);
-        ct.className.visit(this, indent(arg));
+        show(indent(arg), quote(ct.className));
         return null;
     }
 

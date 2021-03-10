@@ -8,11 +8,16 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class ClassDecl extends Declaration {
+    public FieldDeclList fieldDeclList;
+    public MethodDeclList methodDeclList;
+
+    private ClassType type;
 
     public ClassDecl(String cn, FieldDeclList fdl, MethodDeclList mdl, SourcePosition posn) {
         super(cn, null, posn);
         fieldDeclList = fdl;
         methodDeclList = mdl;
+        type = new ClassType(cn);
     }
 
     @Override
@@ -20,6 +25,14 @@ public class ClassDecl extends Declaration {
         return v.visitClassDecl(this, o);
     }
 
-    public FieldDeclList fieldDeclList;
-    public MethodDeclList methodDeclList;
+    @Override
+    public TypeDenoter getType() {
+        return type;
+    }
+
+    @Override
+    boolean hasBeenAnalyzed() {
+        // TODO Auto-generated method stub
+        return false;
+    }
 }

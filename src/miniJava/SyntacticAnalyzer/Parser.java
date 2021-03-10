@@ -72,7 +72,7 @@ public class Parser {
             Token id = scan.peek();
             accept(ID);
             return parseMethodDec(new FieldDecl(isPrivate, isStatic,
-                    new BaseType(TypeKind.VOID, prev.posn), id.spelling, id.posn));
+                    BaseType.getType(TypeKind.VOID), id.spelling, prev.posn));
         } else {
             TypeDenoter type = parseType();
             Token id = scan.peek();
@@ -117,20 +117,19 @@ public class Parser {
         TypeDenoter type = null;
         switch (kind) {
             case INT:
-                type = new BaseType(TypeKind.INT, typeToken.posn);
+                type = BaseType.getType(TypeKind.INT);
                 break;
             case BOOLEAN:
-                type = new BaseType(TypeKind.BOOLEAN, typeToken.posn);
+                type = BaseType.getType(TypeKind.BOOLEAN);
                 break;
             case ID:
-                type = new ClassType(new Identifier(typeToken), typeToken.posn);
+                type = new ClassType(typeToken.spelling, typeToken.posn);
                 break;
         }
         if (kind != BOOLEAN) {
-            Token lbToken = scan.peek();
             if (acceptOpt(LBRACKET) != null) {
                 accept(RBRACKET);
-                type = new ArrayType(type, lbToken.posn);
+                type = new ArrayType(type, typeToken.posn);
             }
         }
         return type;
@@ -227,8 +226,8 @@ public class Parser {
                             // Must be an object array Type
                             Token objID = scan.peek();
                             accept(ID);
-                            TypeDenoter t = new ArrayType(
-                                    new ClassType(new Identifier(first), first.posn), first.posn);
+                            TypeDenoter t = new ArrayType(new ClassType(first.spelling, first.posn),
+                                    first.posn);
                             accept(ASSIGN);
                             stmt = new VarDeclStmt(new VarDecl(t, objID.spelling, first.posn),
                                     parseExpression(), first.posn);
@@ -249,7 +248,7 @@ public class Parser {
                         // Must have been a Type for declaring a new local variable
                         accept(ASSIGN);
                         stmt = new VarDeclStmt(
-                                new VarDecl(new ClassType(new Identifier(first), first.posn),
+                                new VarDecl(new ClassType(first.spelling, first.posn),
                                         potentialID.spelling, first.posn),
                                 parseExpression(), first.posn);
                         break; // Leave the switch statement
@@ -439,20 +438,20 @@ public class Parser {
                     if (acceptOpt(Kind.INT) != null) {
                         // Must be an int array (only time new is used with int)
                         accept(Kind.LBRACKET);
-                        expr = new NewArrayExpr(new BaseType(TypeKind.INT, prev.posn),
-                                parseExpression(), first.posn);
+                        expr = new NewArrayExpr(BaseType.getType(TypeKind.INT), parseExpression(),
+                                first.posn);
                         accept(Kind.RBRACKET);
                     } else {
                         accept(Kind.ID);
                         if (acceptOpt(Kind.LPAREN) != null) {
                             // Must be a class "constructor"
-                            expr = new NewObjectExpr(new ClassType(new Identifier(prev), prev.posn),
+                            expr = new NewObjectExpr(new ClassType(prev.spelling, prev.posn),
                                     first.posn);
                             accept(Kind.RPAREN);
                         } else {
                             // Must be an array declaration
                             accept(Kind.LBRACKET);
-                            expr = new NewArrayExpr(new ClassType(new Identifier(prev), prev.posn),
+                            expr = new NewArrayExpr(new ClassType(prev.spelling, prev.posn),
                                     parseExpression(), first.posn);
                             accept(Kind.RBRACKET);
                         }

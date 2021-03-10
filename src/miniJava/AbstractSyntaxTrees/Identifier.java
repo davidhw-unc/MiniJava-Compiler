@@ -8,14 +8,26 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 
 public class Identifier extends Terminal {
+    private Declaration decl;
 
     public Identifier(Token t) {
         super(t);
     }
+
+    public Declaration getDecl() { return decl; }
+
+    protected void setDecl(Declaration decl) { this.decl = decl; }
 
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitIdentifier(this, o);
     }
 
+    @Override
+    boolean hasBeenAnalyzed() {
+        return decl != null;
+    }
+
+    @Override
+    public TypeDenoter getType() { return decl.getType(); }
 }

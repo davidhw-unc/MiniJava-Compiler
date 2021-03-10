@@ -4,6 +4,8 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class NullExpr extends Expression {
 
+    // TODO make sure this is only found in appropriate places
+
     public NullExpr(SourcePosition posn) {
         super(posn);
     }

@@ -13,7 +13,7 @@ public class ErrorReporter {
     }
 
     public void reportError(String message) {
-        System.err.println(message);;
+        System.err.println(message);
         numErrors++;
     }
 }

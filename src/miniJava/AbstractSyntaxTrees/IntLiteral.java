@@ -8,7 +8,6 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 
 public class IntLiteral extends Terminal {
-
     public IntLiteral(Token t) {
         super(t);
     }
@@ -16,5 +15,15 @@ public class IntLiteral extends Terminal {
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitIntLiteral(this, o);
+    }
+
+    @Override
+    public TypeDenoter getType() {
+        return BaseType.getBaseType(TypeKind.INT);
+    }
+
+    @Override
+    boolean hasBeenAnalyzed() {
+        return true;
     }
 }

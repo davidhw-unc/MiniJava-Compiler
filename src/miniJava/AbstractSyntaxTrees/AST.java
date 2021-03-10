@@ -8,6 +8,7 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class AST {
+    public SourcePosition posn;
 
     public AST(SourcePosition posn) {
         this.posn = posn;
@@ -16,12 +17,20 @@ public abstract class AST {
     @Override
     public String toString() {
         String fullClassName = this.getClass().getName();
-        StringBuilder cn = new StringBuilder(fullClassName.substring(1 + fullClassName.lastIndexOf('.')));
-        if (ASTDisplay.showPosition) cn.append(" ").append(posn.toString());
+        StringBuilder cn = new StringBuilder(
+                fullClassName.substring(1 + fullClassName.lastIndexOf('.')));
+        if (ASTDisplay.showPosition && !(this instanceof TypeDenoter))
+            cn.append(" ").append(posn.toString());
         return cn.toString();
     }
 
     public abstract <A, R> R visit(Visitor<A, R> v, A o);
 
-    public SourcePosition posn;
+    public abstract TypeDenoter getType();
+
+    // TODO this
+    //public abstract void checkType();
+
+    // TODO give this an empty default body?
+    abstract boolean hasBeenAnalyzed();
 }

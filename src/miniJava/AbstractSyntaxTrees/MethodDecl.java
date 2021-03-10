@@ -8,6 +8,8 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class MethodDecl extends MemberDecl {
+    public ParameterDeclList parameterDeclList;
+    public StatementList statementList;
 
     public MethodDecl(MemberDecl md, ParameterDeclList pl, StatementList sl, SourcePosition posn) {
         super(md, posn);
@@ -20,6 +22,9 @@ public class MethodDecl extends MemberDecl {
         return v.visitMethodDecl(this, o);
     }
 
-    public ParameterDeclList parameterDeclList;
-    public StatementList statementList;
+    @Override
+    boolean hasBeenAnalyzed() {
+        // TODO Auto-generated method stub
+        return false;
+    }
 }

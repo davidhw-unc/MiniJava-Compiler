@@ -8,7 +8,6 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class FieldDecl extends MemberDecl {
-
     public FieldDecl(boolean isPrivate, boolean isStatic, TypeDenoter t, String name,
             SourcePosition posn) {
         super(isPrivate, isStatic, t, name, posn);
@@ -21,5 +20,10 @@ public class FieldDecl extends MemberDecl {
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitFieldDecl(this, o);
+    }
+
+    @Override
+    boolean hasBeenAnalyzed() {
+        return type.hasBeenAnalyzed();
     }
 }

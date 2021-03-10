@@ -8,7 +8,10 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class ClassType extends TypeDenoter {
-    public ClassType(Identifier cn, SourcePosition posn) {
+    public String className;
+    private ClassDecl decl;
+
+    public ClassType(String cn, SourcePosition posn) {
         super(TypeKind.CLASS, posn);
         className = cn;
     }
@@ -18,5 +21,14 @@ public class ClassType extends TypeDenoter {
         return v.visitClassType(this, o);
     }
 
-    public Identifier className;
+    public ClassDecl getDecl() {
+        if (decl != null) {
+            return decl;
+        }
+        throw new UnsupportedOperationException("Need to figure out what to do here");
+    }
+
+    void setDecl(ClassDecl decl) {
+        this.decl = decl;
+    }
 }

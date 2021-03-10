@@ -19,4 +19,14 @@ public class LiteralExpr extends Expression {
     }
 
     public Terminal lit;
+
+    @Override
+    public TypeDenoter getType() {
+        return lit.getType();
+    }
+
+    @Override
+    boolean hasBeenAnalyzed() {
+        return true;
+    }
 }
