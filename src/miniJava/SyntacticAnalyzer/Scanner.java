@@ -97,7 +97,6 @@ public class Scanner implements Iterable<Token> {
                         default:
                             // It's just a normal division sign
                             kind = Kind.DIVIDE;
-                            takeIt(curContents);
                             break;
                     }
                     break;
