@@ -89,7 +89,7 @@ public class OperationType extends TypeDenoter {
 
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        validateTypeCount(operandCount, types);
+        Typed.validateTypeCount(operandCount, types);
         // Building in room for a 3-operand ternary operator
         switch (operandCount) {
             case 1:

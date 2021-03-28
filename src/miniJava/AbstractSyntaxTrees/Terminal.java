@@ -8,7 +8,7 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.Token.Kind;
 
-abstract public class Terminal extends AST {
+abstract public class Terminal extends AST implements Typed {
     public Terminal(Token t) {
         super(t.posn);
         spelling = t.spelling;

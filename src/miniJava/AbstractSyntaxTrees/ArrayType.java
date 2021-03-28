@@ -23,6 +23,6 @@ public class ArrayType extends TypeDenoter {
 
     @Override
     public boolean eq(TypeDenoter other) {
-        return (other instanceof ArrayType)
+        return (other instanceof ArrayType) && eltType.eq(((ArrayType) other).eltType);
     }
 }

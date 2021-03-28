@@ -19,19 +19,4 @@ public class Package extends AST {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitPackage(this, o);
     }
-
-    @Override
-    boolean hasBeenAnalyzed() {
-        for (ClassDecl c : classDeclList) {
-            if (!c.hasBeenAnalyzed()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public TypeDenoter getType() {
-        return null;
-    }
 }

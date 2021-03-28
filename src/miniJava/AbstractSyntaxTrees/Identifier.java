@@ -28,9 +28,9 @@ public class Identifier extends Terminal {
     }
 
     @Override
-    public TypeDenoter getAndCheckType() {
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
         if (decl != null) {
-            return decl.getType();
+            return decl.getAndCheckType(types);
         }
         throw new IllegalStateException("Declaration corresponding to the Identifier at " + posn
                 + " has not yet been assigned");

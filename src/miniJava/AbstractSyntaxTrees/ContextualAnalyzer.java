@@ -81,7 +81,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(), new SourcePosition(0, 0)) {
             @Override
             public TypeDenoter getAndCheckType(TypeDenoter... types) {
-                validateTypeCount(0, types);
+                Typed.validateTypeCount(0, types);
                 return BaseType.getType(TypeKind.UNSUPPORTED);
             }
         };

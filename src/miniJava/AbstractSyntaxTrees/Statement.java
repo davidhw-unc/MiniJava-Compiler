@@ -7,7 +7,7 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public abstract class Statement extends AST {
+public abstract class Statement extends AST implements Typed {
 
   public Statement(SourcePosition posn) {
     super (posn);

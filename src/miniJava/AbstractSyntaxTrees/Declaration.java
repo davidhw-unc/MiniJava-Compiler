@@ -7,7 +7,7 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public abstract class Declaration extends AST {
+public abstract class Declaration extends AST implements Typed {
     public String name;
     public TypeDenoter type;
 
@@ -19,7 +19,7 @@ public abstract class Declaration extends AST {
 
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        validateTypeCount(0, types);
+        Typed.validateTypeCount(0, types);
         return type;
     }
 }

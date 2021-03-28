@@ -25,16 +25,4 @@ public abstract class AST {
     }
 
     public abstract <A, R> R visit(Visitor<A, R> v, A o);
-
-    public abstract TypeDenoter getAndCheckType(TypeDenoter... types);
-
-    // TODO give this an empty default body?
-    //abstract boolean hasBeenAnalyzed();
-
-    protected void validateTypeCount(int expectedCount, TypeDenoter[] types) {
-        if (types.length != expectedCount) {
-            throw new IllegalArgumentException(
-                    "Invalid number of types passed for type validation");
-        }
-    }
 }
