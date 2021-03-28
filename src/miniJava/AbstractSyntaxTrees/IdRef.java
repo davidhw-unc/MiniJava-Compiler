@@ -8,6 +8,7 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class IdRef extends BaseRef {
+    public Identifier id;
 
     public IdRef(Identifier id, SourcePosition posn) {
         super(posn);
@@ -19,5 +20,8 @@ public class IdRef extends BaseRef {
         return v.visitIdRef(this, o);
     }
 
-    public Identifier id;
+    @Override
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+        return id.getAndCheckType(types);
+    }
 }

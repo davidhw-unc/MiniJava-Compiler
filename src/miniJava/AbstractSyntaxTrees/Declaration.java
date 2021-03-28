@@ -19,7 +19,6 @@ public abstract class Declaration extends AST implements Typed {
 
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        Typed.validateTypeCount(0, types);
         return type;
     }
 }

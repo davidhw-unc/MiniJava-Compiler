@@ -19,7 +19,6 @@ public class BooleanLiteral extends Terminal {
 
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        Typed.validateTypeCount(0, types);
         return BaseType.getType(TypeKind.BOOLEAN);
     }
 }

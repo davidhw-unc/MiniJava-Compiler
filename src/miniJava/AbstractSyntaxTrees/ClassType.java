@@ -45,6 +45,6 @@ public class ClassType extends TypeDenoter {
     // This is to ensure String is TypeKind.UNSUPPORTED
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        return decl.getAndCheckType(types);
+        return decl.getAndCheckType();
     }
 }

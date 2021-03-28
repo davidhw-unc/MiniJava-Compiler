@@ -17,13 +17,16 @@ abstract public class TypeDenoter extends AST implements Typed {
 
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        Typed.validateTypeCount(0, types);
         return this;
     }
 
     public abstract boolean eq(TypeDenoter other);
 
     public static TypeDenoter getTypeFromEq(TypeDenoter a, TypeDenoter b) {
-        return a.eq(b) ? a : BaseType.getType(TypeKind.ERROR);
+        if (a.eq(b)) {
+            return a;
+        }
+        // TODO this
+        return BaseType.getType(TypeKind.ERROR);
     }
 }

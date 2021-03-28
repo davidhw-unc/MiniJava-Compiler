@@ -21,10 +21,4 @@ public class MethodDecl extends MemberDecl {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitMethodDecl(this, o);
     }
-
-    @Override
-    boolean hasBeenAnalyzed() {
-        // TODO Auto-generated method stub
-        return false;
-    }
 }

@@ -8,7 +8,7 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 
 public class Identifier extends Terminal {
-    private Declaration decl;
+    private Declaration decl = null;
 
     public Identifier(Token t) {
         super(t);
