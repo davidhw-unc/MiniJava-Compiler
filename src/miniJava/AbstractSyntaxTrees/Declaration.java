@@ -18,7 +18,8 @@ public abstract class Declaration extends AST {
     }
 
     @Override
-    public TypeDenoter getType() {
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+        validateTypeCount(0, types);
         return type;
     }
 }

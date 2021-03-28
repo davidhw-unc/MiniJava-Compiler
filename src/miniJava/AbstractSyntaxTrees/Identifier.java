@@ -14,9 +14,13 @@ public class Identifier extends Terminal {
         super(t);
     }
 
-    public Declaration getDecl() { return decl; }
+    public Declaration getDecl() {
+        return decl;
+    }
 
-    protected void setDecl(Declaration decl) { this.decl = decl; }
+    protected void setDecl(Declaration decl) {
+        this.decl = decl;
+    }
 
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
@@ -24,10 +28,11 @@ public class Identifier extends Terminal {
     }
 
     @Override
-    boolean hasBeenAnalyzed() {
-        return decl != null;
+    public TypeDenoter getAndCheckType() {
+        if (decl != null) {
+            return decl.getType();
+        }
+        throw new IllegalStateException("Declaration corresponding to the Identifier at " + posn
+                + " has not yet been assigned");
     }
-
-    @Override
-    public TypeDenoter getType() { return decl.getType(); }
 }

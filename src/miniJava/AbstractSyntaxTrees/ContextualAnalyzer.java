@@ -69,7 +69,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     public Object visitPackage(Package prog, IdentificationTable table) {
         ClassDecl systemClass = new ClassDecl("System", new FieldDeclList(), new MethodDeclList(),
                 new SourcePosition(0, 0));
-        systemClass.fieldDeclList.add(new FieldDecl(false, true, new ClassType("_PrintStream"),
+        systemClass.fieldDeclList.add(
+                new FieldDecl(false, true, new ClassType("_PrintStream", new SourcePosition(0, 0)),
                 "out", new SourcePosition(0, 0)));
         ClassDecl printStreamClass = new ClassDecl("_PrintStream", new FieldDeclList(),
                 new MethodDeclList(), new SourcePosition(0, 0));
@@ -77,8 +78,15 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 new FieldDecl(false, false, BaseType.getType(TypeKind.VOID), "println",
                         new SourcePosition(0, 0)),
                 new ParameterDeclList(), new StatementList(), new SourcePosition(0, 0)));
-        ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
-                new SourcePosition(0, 0));
+        ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(), new SourcePosition(0, 0)) {
+            @Override
+            public TypeDenoter getAndCheckType(TypeDenoter... types) {
+                validateTypeCount(0, types);
+                return BaseType.getType(TypeKind.UNSUPPORTED);
+            }
+        };
+        //ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
+        //        new SourcePosition(0, 0));
 
         // Add all class declarations to highest scope level
         table.classes.put(systemClass.name, systemClass);
@@ -161,6 +169,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         return null;
     }
 
+    // TODO use this
     private TypeDenoter expectedRetType;
 
     @Override

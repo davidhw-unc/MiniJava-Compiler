@@ -8,8 +8,11 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 
 public class Operator extends Terminal {
-    public Operator(Token t) {
+    private final int operandCount;
+
+    public Operator(Token t, int operandCount) {
         super(t);
+        this.operandCount = operandCount;
     }
 
     @Override
@@ -18,12 +21,7 @@ public class Operator extends Terminal {
     }
 
     @Override
-    public TypeDenoter getType() {
-        return null;
-    }
-
-    @Override
-    boolean hasBeenAnalyzed() {
-        return true;
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+        return OperationType.getType(kind, operandCount).getAndCheckType(types);
     }
 }

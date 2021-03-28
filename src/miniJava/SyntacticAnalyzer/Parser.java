@@ -336,7 +336,7 @@ public class Parser {
         Expression expr = parseExprF();
         Token oper = scan.peek();
         if (acceptOpt(OR) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprF(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprF(), start.posn);
         }
         return expr;
     }
@@ -347,7 +347,7 @@ public class Parser {
         Expression expr = parseExprG();
         Token oper = scan.peek();
         if (acceptOpt(AND) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprG(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprG(), start.posn);
         }
         return expr;
     }
@@ -358,7 +358,7 @@ public class Parser {
         Expression expr = parseExprH();
         Token oper = scan.peek();
         if (acceptOpt(EQUAL_TO, NOT_EQUAL) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprH(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprH(), start.posn);
         }
         return expr;
     }
@@ -369,7 +369,7 @@ public class Parser {
         Expression expr = parseExprI();
         Token oper = scan.peek();
         if (acceptOpt(LESS_EQUAL, LESS_THAN, GREATER_THAN, GREATER_EQUAL) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprI(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprI(), start.posn);
         }
         return expr;
     }
@@ -380,7 +380,7 @@ public class Parser {
         Expression expr = parseExprJ();
         Token oper = scan.peek();
         if (acceptOpt(PLUS, MINUS) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprJ(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprJ(), start.posn);
         }
         return expr;
     }
@@ -391,7 +391,7 @@ public class Parser {
         Expression expr = parseExprK();
         Token oper = scan.peek();
         if (acceptOpt(MULTIPLY, DIVIDE) != null) {
-            expr = new BinaryExpr(new Operator(oper), expr, parseExprK(), start.posn);
+            expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprK(), start.posn);
         }
         return expr;
     }
@@ -400,7 +400,7 @@ public class Parser {
     private Expression parseExprK() throws SyntaxException {
         Token oper = scan.peek();
         if (acceptOpt(MINUS, NOT) != null) {
-            return new UnaryExpr(new Operator(oper), parseExprK(), oper.posn);
+            return new UnaryExpr(new Operator(oper, 1), parseExprK(), oper.posn);
         } else {
             return parseExprBase();
         }

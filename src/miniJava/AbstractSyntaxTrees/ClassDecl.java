@@ -11,13 +11,10 @@ public class ClassDecl extends Declaration {
     public FieldDeclList fieldDeclList;
     public MethodDeclList methodDeclList;
 
-    private ClassType type;
-
     public ClassDecl(String cn, FieldDeclList fdl, MethodDeclList mdl, SourcePosition posn) {
-        super(cn, null, posn);
+        super(cn, null, posn); // starts out with null type
         fieldDeclList = fdl;
         methodDeclList = mdl;
-        type = new ClassType(cn);
     }
 
     @Override
@@ -25,14 +22,7 @@ public class ClassDecl extends Declaration {
         return v.visitClassDecl(this, o);
     }
 
-    @Override
-    public TypeDenoter getType() {
-        return type;
-    }
-
-    @Override
-    boolean hasBeenAnalyzed() {
-        // TODO Auto-generated method stub
-        return false;
+    protected void setType(ClassType type) {
+        this.type = type;
     }
 }

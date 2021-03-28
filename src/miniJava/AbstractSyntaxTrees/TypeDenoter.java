@@ -16,12 +16,14 @@ abstract public class TypeDenoter extends AST {
     }
 
     @Override
-    public TypeDenoter getType() {
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+        validateTypeCount(0, types);
         return this;
     }
 
-    @Override
-    boolean hasBeenAnalyzed() {
-        return true;
+    public abstract boolean eq(TypeDenoter other);
+
+    public static TypeDenoter getTypeFromEq(TypeDenoter a, TypeDenoter b) {
+        return a.eq(b) ? a : BaseType.getType(TypeKind.ERROR);
     }
 }

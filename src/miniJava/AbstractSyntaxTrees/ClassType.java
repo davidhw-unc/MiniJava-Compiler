@@ -30,5 +30,21 @@ public class ClassType extends TypeDenoter {
 
     void setDecl(ClassDecl decl) {
         this.decl = decl;
+        // First type corresponding to this class gets to be the master
+        if (decl.getAndCheckType() == null) {
+            decl.setType(this);
+        }
+    }
+
+    @Override
+    public boolean eq(TypeDenoter other) {
+        return (other instanceof ClassType) && (decl == ((ClassType) other).decl);
+    }
+
+    // Make *sure* type is being retrieved from the ClassDecl instance
+    // This is to ensure String is TypeKind.UNSUPPORTED
+    @Override
+    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+        return decl.getAndCheckType(types);
     }
 }

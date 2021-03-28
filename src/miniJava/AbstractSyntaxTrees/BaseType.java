@@ -41,8 +41,7 @@ public class BaseType extends TypeDenoter {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        // TODO Auto-generated method stub
-        return super.equals(obj);
+    public boolean eq(TypeDenoter other) {
+        return (other instanceof BaseType) && (typeKind == other.typeKind);
     }
 }

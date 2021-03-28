@@ -18,12 +18,7 @@ public class IntLiteral extends Terminal {
     }
 
     @Override
-    public TypeDenoter getType() {
-        return BaseType.getBaseType(TypeKind.INT);
-    }
-
-    @Override
-    boolean hasBeenAnalyzed() {
-        return true;
+    public TypeDenoter getAndCheckType() {
+        return BaseType.getType(TypeKind.INT);
     }
 }
