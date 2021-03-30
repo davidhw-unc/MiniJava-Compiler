@@ -7,7 +7,7 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.Token;
 
-public class BooleanLiteral extends Terminal {
+public class BooleanLiteral extends Terminal implements Typed {
     public BooleanLiteral(Token t) {
         super(t);
     }
@@ -18,7 +18,12 @@ public class BooleanLiteral extends Terminal {
     }
 
     @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        return BaseType.getType(TypeKind.BOOLEAN);
+    public TypeDenoter getType() {
+        return new BaseType(TypeKind.BOOLEAN, null);
+    }
+
+    @Override
+    public void setType(TypeDenoter type) {
+        throw new UnsupportedOperationException("Cannot change the type of a boolean literal");
     }
 }

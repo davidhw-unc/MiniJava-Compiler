@@ -30,7 +30,11 @@ public class Token {
         return String.format("%-13s %8s %s", kind.toString(), posn, spelling);
     }
 
-    public long getLine() { return posn.line; }
+    public long getLine() {
+        return posn.line;
+    }
 
-    public int getStartColumn() { return posn.startColumn; }
+    public int getStartColumn() {
+        return posn.startColumn;
+    }
 }

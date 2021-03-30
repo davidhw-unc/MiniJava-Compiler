@@ -203,7 +203,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     }
 
     @Override
-    public Object visitVardeclStmt(VarDeclStmt stmt, String arg) {
+    public Object visitVarDeclStmt(VarDeclStmt stmt, String arg) {
         show(arg, stmt);
         stmt.varDecl.visit(this, indent(arg));
         stmt.initExp.visit(this, indent(arg));

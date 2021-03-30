@@ -7,19 +7,12 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.Token;
 
-public class Identifier extends Terminal {
+public class Identifier extends Terminal implements Typed {
     private Declaration decl = null;
+    private TypeDenoter type = null;
 
     public Identifier(Token t) {
         super(t);
-    }
-
-    public Declaration getDecl() {
-        return decl;
-    }
-
-    protected void setDecl(Declaration decl) {
-        this.decl = decl;
     }
 
     @Override
@@ -27,12 +20,25 @@ public class Identifier extends Terminal {
         return v.visitIdentifier(this, o);
     }
 
-    @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+    public Declaration getDecl() {
         if (decl != null) {
-            return decl.getAndCheckType(types);
+            return decl;
         }
-        throw new IllegalStateException("Declaration corresponding to the Identifier at " + posn
-                + " has not yet been assigned");
+        throw new IllegalStateException("The Identifier at " + posn
+                + " has not yet been assigned a corresponding Declaration");
+    }
+
+    protected void setDecl(Declaration decl) {
+        this.decl = decl;
+    }
+
+    @Override
+    public TypeDenoter getType() {
+        return type;
+    }
+
+    @Override
+    public void setType(TypeDenoter type) {
+        this.type = type;
     }
 }

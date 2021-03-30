@@ -72,7 +72,7 @@ public class Parser {
             Token id = scan.peek();
             accept(ID);
             return parseMethodDec(new FieldDecl(isPrivate, isStatic,
-                    BaseType.getType(TypeKind.VOID), id.spelling, prev.posn));
+                    new BaseType(TypeKind.VOID, prev.posn), id.spelling, prev.posn));
         } else {
             TypeDenoter type = parseType();
             Token id = scan.peek();
@@ -117,10 +117,10 @@ public class Parser {
         TypeDenoter type = null;
         switch (kind) {
             case INT:
-                type = BaseType.getType(TypeKind.INT);
+                type = new BaseType(TypeKind.INT, typeToken.posn);
                 break;
             case BOOLEAN:
-                type = BaseType.getType(TypeKind.BOOLEAN);
+                type = new BaseType(TypeKind.BOOLEAN, typeToken.posn);
                 break;
             case ID:
                 type = new ClassType(typeToken.spelling, typeToken.posn);
@@ -304,6 +304,7 @@ public class Parser {
                     break;
                 case IF:
                     // If(/else) statement
+                    // In ambiguous case, "else" goes with inner "if"
                     accept(LPAREN);
                     Expression cond = parseExpression();
                     accept(RPAREN);
@@ -444,8 +445,8 @@ public class Parser {
                     if (acceptOpt(Kind.INT) != null) {
                         // Must be an int array (only time new is used with int)
                         accept(Kind.LBRACKET);
-                        expr = new NewArrayExpr(BaseType.getType(TypeKind.INT), parseExpression(),
-                                first.posn);
+                        expr = new NewArrayExpr(new BaseType(TypeKind.INT, prev.posn),
+                                parseExpression(), first.posn);
                         accept(Kind.RBRACKET);
                     } else {
                         accept(Kind.ID);

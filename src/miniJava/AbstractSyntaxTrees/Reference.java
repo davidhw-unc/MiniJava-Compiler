@@ -8,19 +8,19 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class Reference extends AST implements Typed {
+    private TypeDenoter type;
+
     public Reference(SourcePosition posn) {
         super(posn);
     }
 
-    /*
     @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        Typed.validateTypeCount(0, types);
-        if (decl != null) {
-            return decl.getAndCheckType(types);
-        }
-        throw new IllegalStateException("Declaration corresponding to the Reference at " + posn
-                + " has not yet been assigned");
+    public TypeDenoter getType() {
+        return type;
     }
-    */
+
+    @Override
+    public void setType(TypeDenoter type) {
+        this.type = type;
+    }
 }

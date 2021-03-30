@@ -21,9 +21,4 @@ public class QualRef extends Reference {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitQRef(this, o);
     }
-
-    @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        return id.getAndCheckType();
-    }
 }

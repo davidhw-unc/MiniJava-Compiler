@@ -35,7 +35,7 @@ public interface Visitor<ArgType, ResultType> {
     // Statements
     public ResultType visitBlockStmt(BlockStmt stmt, ArgType arg);
 
-    public ResultType visitVardeclStmt(VarDeclStmt stmt, ArgType arg);
+    public ResultType visitVarDeclStmt(VarDeclStmt stmt, ArgType arg);
 
     public ResultType visitAssignStmt(AssignStmt stmt, ArgType arg);
 

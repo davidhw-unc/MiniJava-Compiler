@@ -6,9 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import miniJava.ErrorReporter;
-import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.IdentificationTable, Object> {
+// TODO change return type back to Object
+public class ContextualAnalyzer
+        implements Visitor<ContextualAnalyzer.IdentificationTable, TypeDenoter> {
     /*------------------------------
      * Static members 
      *----------------------------*/
@@ -18,13 +19,22 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     }
 
     static class IdentificationTable {
-        Map<String, ClassDecl> classes;
-        Map<String, FieldDecl> memberFs;
-        Map<String, MethodDecl> memberMs;
-        Map<String, ParameterDecl> params;
-        Deque<Map<String, VarDecl>> locals = new ArrayDeque<>();
-        Map<String, Map<String, FieldDecl>> publicDeclFs = new HashMap<>();
-        Map<String, Map<String, MethodDecl>> publicDeclMs = new HashMap<>();
+        // Note: no need to separate fields and functions, miniJava doesn't allow id repeats
+        // (see @83 on piazza)
+        Map<String, ClassDecl> classes = new HashMap<>(); // Layer 1
+        Map<String, MemberDecl> curMembers = new HashMap<>(); // Layer 2
+        Deque<Map<String, LocalDecl>> curLocals = new ArrayDeque<>(); // Layer 3+
+        // Params are the first layer in the deque
+
+        Map<String, Map<String, MemberDecl>> publicMembers = new HashMap<>();
+
+        ClassDecl curClass = null;
+        TypeDenoter curMethodExpectedRet = null;
+        boolean isStatic = false;
+
+        IdentificationTable() {
+            curLocals.add(new HashMap<>());
+        }
     }
 
     private static class AnalysisError extends Error {
@@ -53,8 +63,9 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ast.visit(this, new IdentificationTable());
     }
 
+    // For fatal errors (identification errors), throw this function's return
     private AnalysisError error(String e, long line) {
-        err.reportError(String.format("Contextual analysis error on line %d: %s", line, e));
+        err.reportError();
         System.out.printf("*** line %d: %s%n", line, e);
         return new AnalysisError();
     }
@@ -66,28 +77,20 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     /////////////////////////////////////////////////////////////////////////////// 
 
     @Override
-    public Object visitPackage(Package prog, IdentificationTable table) {
+    public TypeDenoter visitPackage(Package prog, IdentificationTable table) {
         ClassDecl systemClass = new ClassDecl("System", new FieldDeclList(), new MethodDeclList(),
-                new SourcePosition(0, 0));
-        systemClass.fieldDeclList.add(
-                new FieldDecl(false, true, new ClassType("_PrintStream", new SourcePosition(0, 0)),
-                "out", new SourcePosition(0, 0)));
+                null);
+        systemClass.fieldDeclList
+                .add(new FieldDecl(false, true, new ClassType("_PrintStream", null), "out", null));
         ClassDecl printStreamClass = new ClassDecl("_PrintStream", new FieldDeclList(),
-                new MethodDeclList(), new SourcePosition(0, 0));
+                new MethodDeclList(), null);
         printStreamClass.methodDeclList.add(new MethodDecl(
-                new FieldDecl(false, false, BaseType.getType(TypeKind.VOID), "println",
-                        new SourcePosition(0, 0)),
-                new ParameterDeclList(), new StatementList(), new SourcePosition(0, 0)));
-        ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(), new SourcePosition(0, 0)) {
-            @Override
-            public TypeDenoter getAndCheckType(TypeDenoter... types) {
-                return BaseType.getType(TypeKind.UNSUPPORTED);
-            }
-        };
-        //ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
-        //        new SourcePosition(0, 0));
+                new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null),
+                new ParameterDeclList(), new StatementList(), null));
+        ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
+                null);
 
-        // Add all class declarations to highest scope level
+        // Add all class declarations to the table
         table.classes.put(systemClass.name, systemClass);
         table.classes.put(printStreamClass.name, printStreamClass);
         table.classes.put(stringClass.name, stringClass);
@@ -96,18 +99,16 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 throw error("Identification error - duplicate class declaration", c.posn.line);
             }
             table.classes.put(c.name, c);
-            HashMap<String, MethodDecl> publicDeclMs = new HashMap<>();
-            table.publicDeclMs.put(c.name, publicDeclMs);
-            HashMap<String, FieldDecl> publicDeclFs = new HashMap<>();
-            table.publicDeclFs.put(c.name, publicDeclFs);
+            HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
+            table.publicMembers.put(c.name, curPublicMembers);
             for (FieldDecl field : c.fieldDeclList) {
                 if (!field.isPrivate) {
-                    publicDeclFs.put(field.name, field);
+                    curPublicMembers.put(field.name, field);
                 }
             }
             for (MethodDecl method : c.methodDeclList) {
                 if (!method.isPrivate) {
-                    publicDeclMs.put(method.name, method);
+                    curPublicMembers.put(method.name, method);
                 }
             }
         }
@@ -129,75 +130,95 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
+    // Note: Declarations do not need to have their type assigned- it's already known
+
     @Override
-    public Object visitClassDecl(ClassDecl cd, IdentificationTable table) {
+    public TypeDenoter visitClassDecl(ClassDecl cd, IdentificationTable table) {
         // Record all members in the table
-        table.memberMs = new HashMap<>();
-        table.memberFs = new HashMap<>();
+        table.curMembers.clear();
         for (FieldDecl field : cd.fieldDeclList) {
-            if (table.memberFs.containsKey(field.name)) {
+            if (table.curMembers.containsKey(field.name)) {
                 throw error("Identification error - duplicate field declaration", field.posn.line);
             }
-            table.memberFs.put(field.name, field);
+            table.curMembers.put(field.name, field);
         }
         for (MethodDecl method : cd.methodDeclList) {
-            if (table.memberMs.containsKey(method.name)) {
+            if (table.curMembers.containsKey(method.name)) {
                 throw error("Identification error - duplicate method declaration",
                         method.posn.line);
             }
-            table.memberMs.put(method.name, method);
+            table.curMembers.put(method.name, method);
         }
 
-        // Link each field to the matching declaration
+        // Save this ClassDecl's reference so that ClassTypes can be made for ThisRefs
+        table.curClass = cd;
+
+        // Visit each field & method
         for (FieldDecl field : cd.fieldDeclList) {
             field.visit(this, table);
         }
-
-        // Perform contextual analysis on each method
         for (MethodDecl method : cd.methodDeclList) {
             method.visit(this, table);
         }
 
+        // Note: Classes don't have a type, despite technically implementing Typed
+
         return null;
     }
 
     @Override
-    public Object visitFieldDecl(FieldDecl fd, IdentificationTable table) {
+    public TypeDenoter visitFieldDecl(FieldDecl fd, IdentificationTable table) {
         // Visit the TypeDenoter
-        fd.type.visit(this, table);
+        fd.getType().visit(this, table);
+
         return null;
     }
 
-    // TODO use this
-    private TypeDenoter expectedRetType;
-
     @Override
-    public Object visitMethodDecl(MethodDecl md, IdentificationTable table) {
-        // Add proper maps to table, visit parameter Objects
-        table.params = new HashMap<>();
-        for (ParameterDecl param : md.parameterDeclList) {
-            if (table.params.containsKey(param.name)) {
-                throw error("Identification error - duplicate parameter name", param.posn.line);
-            }
-            param.visit(this, table);
-            table.params.put(param.name, param);
+    public TypeDenoter visitMethodDecl(MethodDecl md, IdentificationTable table) {
+        // TODO remove this once the program is verified working
+        // Check that the param layer is present (and empty) on the deque (with no extra layers)
+        if (table.curLocals.size() != 1) {
+            throw new IllegalStateException("There are old entries left in the curLocals deque");
         }
-        table.locals.push(new HashMap<>());
+        if (table.curLocals.peek().size() != 0) {
+            throw new IllegalStateException(
+                    "There are old parameters left in curLocal's parameter layer");
+        }
 
-        // Visit & record expected return type
-        md.type.visit(this, table);
-        expectedRetType = md.getType();
+        // Visit parameters
+        for (ParameterDecl pd : md.parameterDeclList) {
+            pd.visit(this, table);
+        }
 
-        // Check each statement
+        // Visit & record expected return type so that return statements can be properly checked
+        md.getType().visit(this, table);
+        table.curMethodExpectedRet = md.getType();
+
+        // Record whether this is a static method
+        table.isStatic = md.isStatic;
+
+        // TODO make sure there's a return statement in non-void methods (see @97 on Piazza)
+
+        // Visit each statement within the function
         for (Statement s : md.statementList) {
             s.visit(this, table);
         }
 
+        // Clear the parameter layer's contents (should be only layer left)
+        table.curLocals.peek().clear();
+
         return null;
     }
 
     @Override
-    public Object visitParameterDecl(ParameterDecl pd, IdentificationTable table) {
+    public TypeDenoter visitParameterDecl(ParameterDecl pd, IdentificationTable table) {
+        // Add this declaration to the table - assumes only the param map is in curLocalsAndParams
+        if (table.curLocals.peek().containsKey(pd.name)) {
+            throw error("Identification error - duplicate parameter name", pd.posn.line);
+        }
+        table.curLocals.peek().put(pd.name, pd);
+
         // Visit the parameter's TypeDenoter
         pd.type.visit(this, table);
 
@@ -210,15 +231,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         decl.type.visit(this, table);
 
         // Add this declaration to the table
-        if (table.locals.peek().containsKey(decl.name)) {
-            throw error("Identification error - duplicate local variable name", decl.posn.line);
+        if (table.curLocals.peek().containsKey(decl.name)) {
+            throw error("Identification error - local variable conflicts with parameter"
+                    + " or local variable declaration", decl.posn.line);
         }
-        if (table.params.containsKey(decl.name)) {
-            throw error(
-                    "Identification error - local variable conflicts with parameter declaration",
-                    decl.posn.line);
-        }
-        table.locals.peek().put(decl.name, decl);
+        table.curLocals.peek().put(decl.name, decl);
 
         return null;
     }
@@ -230,27 +247,38 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     ///////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public Object visitBaseType(BaseType type, IdentificationTable table) {
+    public TypeDenoter visitBaseType(BaseType type, IdentificationTable table) {
         // Do nothing
         return null;
     }
 
     @Override
-    public Object visitClassType(ClassType type, IdentificationTable table) {
-        // Find corresponding class in the the table
-        type.setDecl(table.classes.get(type.className));
+    public TypeDenoter visitClassType(ClassType type, IdentificationTable table) {
+        // Find corresponding class in the table
+        ClassDecl decl = table.classes.get(type.className);
 
         // If not found, record a nonfatal error and make the type ERROR
-        if (type.getDecl() == null) {
+        if (decl == null) {
             error("Type error - unknown class name", type.posn.line);
             type.typeKind = TypeKind.ERROR;
         }
+
+        // If the class is "String," make it UNSUPPORTED (no error generated here)
+        if (type.className.equals("String")) {
+            type.typeKind = TypeKind.UNSUPPORTED;
+        }
+
+        // Record the class's declaration
+        type.setDecl(decl);
 
         return null;
     }
 
     @Override
-    public Object visitArrayType(ArrayType type, IdentificationTable table) {
+    public TypeDenoter visitArrayType(ArrayType type, IdentificationTable table) {
+        // Note: no need to verify that eltType's kind is INT or CLASS- nothing
+        // else should ever be allowed through the parser
+
         // Visit the type held by the array
         type.eltType.visit(this, table);
 
@@ -263,52 +291,75 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
+    // TODO take into account static environment!!!
+
     @Override
-    public Object visitBlockStmt(BlockStmt stmt, IdentificationTable table) {
+    public TypeDenoter visitBlockStmt(BlockStmt stmt, IdentificationTable table) {
+        // Create new frame on the curBlockLocals deque
+        table.curLocals.push(new HashMap<>(table.curLocals.peek()));
+
+        // Visit each statement within the block
+        for (Statement s : stmt.sl) {
+            s.visit(this, table);
+        }
+
+        // Remove this block's frame from the deque
+        table.curLocals.pop();
+
+        return null;
+    }
+
+    @Override
+    public TypeDenoter visitVarDeclStmt(VarDeclStmt stmt, IdentificationTable table) {
+        // Visit the Expression
+        stmt.initExp.visit(this, table);
+
+        // Visit the VarDecl *after* the Expression - this will add it to the table
+        stmt.varDecl.visit(this, table);
+
+        // Check type equality
+        if (!TypeDenoter.eq(stmt.initExp.getType(), stmt.varDecl.getType())) {
+            error("Type error - incompatible types in variable declaration", stmt.posn.line);
+        }
+
+        return null;
+    }
+
+    @Override
+    public TypeDenoter visitAssignStmt(AssignStmt stmt, IdentificationTable table) {
+
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitVardeclStmt(VarDeclStmt stmt, IdentificationTable table) {
+    public TypeDenoter visitIxAssignStmt(IxAssignStmt stmt, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitAssignStmt(AssignStmt stmt, IdentificationTable table) {
+    public TypeDenoter visitCallStmt(CallStmt stmt, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitIxAssignStmt(IxAssignStmt stmt, IdentificationTable table) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Object visitCallStmt(CallStmt stmt, IdentificationTable table) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Object visitReturnStmt(ReturnStmt stmt, IdentificationTable table) {
-        // TODO check for match with expectedRetVal
+    public TypeDenoter visitReturnStmt(ReturnStmt stmt, IdentificationTable table) {
+        // TODO check expr type against expectedReturn in table
 
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitIfStmt(IfStmt stmt, IdentificationTable table) {
+    public TypeDenoter visitIfStmt(IfStmt stmt, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitWhileStmt(WhileStmt stmt, IdentificationTable table) {
+    public TypeDenoter visitWhileStmt(WhileStmt stmt, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -319,56 +370,58 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
+    // TODO take into accout static environment!!!
+
     @Override
-    public Object visitUnaryExpr(UnaryExpr expr, IdentificationTable table) {
+    public TypeDenoter visitUnaryExpr(UnaryExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitBinaryExpr(BinaryExpr expr, IdentificationTable table) {
+    public TypeDenoter visitBinaryExpr(BinaryExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitRefExpr(RefExpr expr, IdentificationTable table) {
+    public TypeDenoter visitRefExpr(RefExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitIxExpr(IxExpr expr, IdentificationTable table) {
+    public TypeDenoter visitIxExpr(IxExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitCallExpr(CallExpr expr, IdentificationTable table) {
+    public TypeDenoter visitCallExpr(CallExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitLiteralExpr(LiteralExpr expr, IdentificationTable table) {
+    public TypeDenoter visitLiteralExpr(LiteralExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitNewObjectExpr(NewObjectExpr expr, IdentificationTable table) {
+    public TypeDenoter visitNewObjectExpr(NewObjectExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitNewArrayExpr(NewArrayExpr expr, IdentificationTable table) {
+    public TypeDenoter visitNewArrayExpr(NewArrayExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitNullExpr(NullExpr expr, IdentificationTable table) {
+    public TypeDenoter visitNullExpr(NullExpr expr, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -379,21 +432,140 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
+    // TODO double check that these are all getting their types assigned
+
     @Override
-    public Object visitThisRef(ThisRef ref, IdentificationTable table) {
-        // TODO Auto-generated method stub
+    public TypeDenoter visitThisRef(ThisRef ref, IdentificationTable table) {
+        // Set the ref's type to a new TypeDenoter
+        ref.setType(new ClassType(table.curClass.name, ref.posn));
+
+        // Visit said TypeDenoter
+        ref.getType().visit(this, table);
+
+        return null;
+    }
+
+    // Note: b/c of the grammar, we know any function ref can't be further qualified
+    // and must be in a CallStmt or CallExpr
+
+    @Override
+    public TypeDenoter visitIdRef(IdRef ref, IdentificationTable table) {
+        String name = ref.id.spelling;
+
+        // First check layer 3+
+        Declaration decl = table.curLocals.peek().get(name);
+
+        // If not found in layer 3+, check layer 2
+        if (decl == null) {
+            decl = table.curMembers.get(name);
+
+            // If not found in layer 2, check layer 1
+            if (decl == null) {
+                decl = table.classes.get(name);
+            }
+        }
+
+        // If the current context is static, make sure the indicted decl is as well
+        if (table.isStatic && (decl != null) && (decl instanceof MemberDecl)
+                && (!((MemberDecl) decl).isStatic)) {
+            throw error(
+                    "Identification error - referenced a non-static member from a static context",
+                    ref.posn.line);
+        }
+
+        if (decl == null) {
+            throw error("Identification error - could not find any declarations matching the name "
+                    + name, ref.posn.line);
+        }
+
+        // Record the matching declaration in the identifier
+        ref.id.setDecl(decl);
+
+        // Visit the identifier
+        ref.id.visit(this, table);
+
+        // Set this reference's type
+        ref.setType(ref.id.getType());
+
         return null;
     }
 
     @Override
-    public Object visitIdRef(IdRef ref, IdentificationTable table) {
-        // TODO Auto-generated method stub
-        return null;
-    }
+    public TypeDenoter visitQRef(QualRef ref, IdentificationTable table) {
+        // Visit the previous reference
+        ref.ref.visit(this, table);
 
-    @Override
-    public Object visitQRef(QualRef ref, IdentificationTable table) {
-        // TODO Auto-generated method stub
+        boolean allowNonStatic = true;
+        Declaration lastDecl = null;
+        ClassDecl lastClass = null;
+
+        if (ref.ref instanceof ThisRef) {
+            lastClass = table.curClass;
+
+        } else { // IdRef or QualRef
+            // Get lastDecl
+            if (ref.ref instanceof IdRef) {
+                lastDecl = ((IdRef) ref.ref).id.getDecl();
+            } else {
+                lastDecl = ((QualRef) ref.ref).id.getDecl();
+            }
+
+            if (lastDecl instanceof MethodDecl) {
+                // If lastRef is pointing to a method, error
+                throw error("Identification error - method reference found when an object"
+                        + " reference was expected", ref.posn.line);
+            }
+
+            // Check if the last matched decl was a class
+            // (Can only happen if ref.ref was an IdRef)
+            if (lastDecl instanceof ClassDecl) {
+                // If ref.ref is pointing to a class, only allow static access
+                allowNonStatic = false;
+
+                // Set lastClass
+                lastClass = (ClassDecl) lastDecl;
+
+            } else { // Pointing to FieldDecl, VarDecl, or ParameterDecl
+                // Throw error if not referring to an object
+                if (ref.ref.getType().typeKind != TypeKind.CLASS) {
+                    throw error("Identification error - attempted to access member of a"
+                            + " non-object reference", ref.posn.line);
+                }
+
+                // Set lastClass
+                lastClass = ((ClassType) lastDecl.getType()).getDecl();
+            }
+        }
+
+        // Find declaration for this identifier
+        if (lastClass == table.curClass) {
+            // Handle case where it's in the current class
+            ref.id.setDecl(table.curMembers.get(ref.id.spelling));
+            if (ref.id.getDecl() == null) {
+                throw error("Identification error - no member called " + ref.id.spelling
+                        + " exists in the current class " + lastClass.name, ref.posn.line);
+            }
+        } else {
+            // Handle case where it's in a different class
+            ref.id.setDecl(table.publicMembers.get(lastClass.name).get(ref.id.spelling));
+            if (ref.id.getDecl() == null) {
+                throw error("Identification error - no public member called " + ref.id.spelling
+                        + " in " + lastClass.name, ref.posn.line);
+            }
+
+            // Make sure this isn't an illegal non-static access
+            if (!allowNonStatic && !((MemberDecl) ref.id.getDecl()).isStatic) {
+                throw error("Identification error - attempted to access nonstatic member from"
+                        + " a static context", ref.posn.line);
+            }
+        }
+
+        // Visit this identifier
+        ref.id.visit(this, table);
+
+        // Set this reference's type
+        ref.setType(ref.id.getType());
+
         return null;
     }
 
@@ -404,26 +576,28 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     ///////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public Object visitIdentifier(Identifier id, IdentificationTable table) {
+    public TypeDenoter visitIdentifier(Identifier id, IdentificationTable table) {
+        // Assume decl has been assigned, then assign type
+        id.setType(id.getDecl().getType());
+
+        return null;
+    }
+
+    @Override
+    public TypeDenoter visitOperator(Operator op, IdentificationTable table) {
         // TODO Auto-generated method stub
         return null;
     }
 
     @Override
-    public Object visitOperator(Operator op, IdentificationTable table) {
-        // TODO Auto-generated method stub
+    public TypeDenoter visitIntLiteral(IntLiteral num, IdentificationTable table) {
+        // Do nothing, type is already defined
         return null;
     }
 
     @Override
-    public Object visitIntLiteral(IntLiteral num, IdentificationTable table) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Object visitBooleanLiteral(BooleanLiteral bool, IdentificationTable table) {
-        // TODO Auto-generated method stub
+    public TypeDenoter visitBooleanLiteral(BooleanLiteral bool, IdentificationTable table) {
+        // Do nothing, type is already defined
         return null;
     }
 

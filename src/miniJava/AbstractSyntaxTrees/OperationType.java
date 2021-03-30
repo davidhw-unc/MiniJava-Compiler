@@ -3,6 +3,8 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 import miniJava.SyntacticAnalyzer.Token.Kind;
 
+// TODO nuke this!!!
+
 public class OperationType extends TypeDenoter {
     @FunctionalInterface
     private interface TriFunction<T, U, V, R> {

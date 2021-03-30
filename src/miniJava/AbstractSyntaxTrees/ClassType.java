@@ -9,6 +9,7 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class ClassType extends TypeDenoter {
     public String className;
+
     private ClassDecl decl;
 
     public ClassType(String cn, SourcePosition posn) {
@@ -25,26 +26,11 @@ public class ClassType extends TypeDenoter {
         if (decl != null) {
             return decl;
         }
-        throw new UnsupportedOperationException("Need to figure out what to do here");
+        throw new UnsupportedOperationException(
+                "ClassDecl on line " + posn.line + " has not yet been assigned a declaration");
     }
 
     void setDecl(ClassDecl decl) {
         this.decl = decl;
-        // First type corresponding to this class gets to be the master
-        if (decl.getAndCheckType() == null) {
-            decl.setType(this);
-        }
-    }
-
-    @Override
-    public boolean eq(TypeDenoter other) {
-        return (other instanceof ClassType) && (decl == ((ClassType) other).decl);
-    }
-
-    // Make *sure* type is being retrieved from the ClassDecl instance
-    // This is to ensure String is TypeKind.UNSUPPORTED
-    @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        return decl.getAndCheckType();
     }
 }

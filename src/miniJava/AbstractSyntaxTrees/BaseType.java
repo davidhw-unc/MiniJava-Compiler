@@ -8,12 +8,26 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class BaseType extends TypeDenoter {
+    public BaseType(TypeKind t, SourcePosition posn) {
+        super(t, posn);
+        if (t == TypeKind.CLASS || t == TypeKind.ARRAY) {
+            throw new IllegalArgumentException(t + " is not a valid TypeKind for a BaseType");
+        }
+    }
+
+    @Override
+    public <A, R> R visit(Visitor<A, R> v, A o) {
+        return v.visitBaseType(this, o);
+    }
+
+    // TODO clean up
+    /*
     private static final BaseType boolType = new BaseType(TypeKind.BOOLEAN);
     private static final BaseType intType = new BaseType(TypeKind.INT);
     private static final BaseType voidType = new BaseType(TypeKind.VOID);
     private static final BaseType unsupportedType = new BaseType(TypeKind.UNSUPPORTED);
     private static final BaseType errorType = new BaseType(TypeKind.ERROR);
-
+    
     public static BaseType getType(TypeKind t) {
         switch (t) {
             case BOOLEAN:
@@ -30,18 +44,17 @@ public class BaseType extends TypeDenoter {
                 throw new IllegalArgumentException(t + " is not a valid TypeKind for a BaseType");
         }
     }
-
+    
     private BaseType(TypeKind t) {
-        super(t, new SourcePosition(0, 0));
+        super(t, null);
     }
+    */
 
-    @Override
-    public <A, R> R visit(Visitor<A, R> v, A o) {
-        return v.visitBaseType(this, o);
-    }
-
+    // TODO clean up
+    /*
     @Override
     public boolean eq(TypeDenoter other) {
         return (other instanceof BaseType) && (typeKind == other.typeKind);
     }
+    */
 }

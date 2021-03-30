@@ -7,7 +7,7 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.Token;
 
-public class IntLiteral extends Terminal {
+public class IntLiteral extends Terminal implements Typed {
     public IntLiteral(Token t) {
         super(t);
     }
@@ -18,7 +18,12 @@ public class IntLiteral extends Terminal {
     }
 
     @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
-        return BaseType.getType(TypeKind.INT);
+    public TypeDenoter getType() {
+        return new BaseType(TypeKind.INT, null);
+    }
+
+    @Override
+    public void setType(TypeDenoter type) {
+        throw new UnsupportedOperationException("Cannot change the type of a boolean literal");
     }
 }

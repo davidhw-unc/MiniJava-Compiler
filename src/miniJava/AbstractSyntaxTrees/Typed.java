@@ -1,7 +1,10 @@
 package miniJava.AbstractSyntaxTrees;
 
 interface Typed {
-    TypeDenoter getAndCheckType(TypeDenoter... types);
+    TypeDenoter getType();
+
+    void setType(TypeDenoter type);
+    //TypeDenoter getAndCheckType(TypeDenoter... types);
 
     /*
     static void validateTypeCount(int expectedCount, TypeDenoter[] types) {

@@ -29,7 +29,8 @@ public class BinaryExpr extends Expression {
     @Override
     public TypeDenoter getAndCheckType(TypeDenoter... types) {
         if (type == null) {
-            type = TypeDenoter.getTypeFromEq(left.getAndCheckType(types), right.getAndCheckType(types));
+            type = TypeDenoter.getTypeFromEq(left.getAndCheckType(types),
+                    right.getAndCheckType(types));
             if (type.typeKind == TypeKind.ERROR) {
 
             }

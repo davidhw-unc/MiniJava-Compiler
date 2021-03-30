@@ -21,8 +21,11 @@ public class ArrayType extends TypeDenoter {
         return v.visitArrayType(this, o);
     }
 
+    // TODO clean up
+    /*
     @Override
     public boolean eq(TypeDenoter other) {
-        return (other instanceof ArrayType) && eltType.eq(((ArrayType) other).eltType);
+        return (other instanceof ArrayType) && ((ArrayType) other).eltType.eq(eltType);
     }
+    */
 }

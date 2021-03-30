@@ -7,7 +7,11 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public class ReturnStmt extends Statement {
+public class ReturnStmt extends Statement implements Typed {
+    public Expression returnExpr;
+
+    private TypeDenoter type = null;
+
     public ReturnStmt(Expression e, SourcePosition posn) {
         super(posn);
         returnExpr = e;
@@ -18,5 +22,13 @@ public class ReturnStmt extends Statement {
         return v.visitReturnStmt(this, o);
     }
 
-    public Expression returnExpr;
+    @Override
+    public TypeDenoter getType() {
+        return type;
+    }
+
+    @Override
+    public void setType(TypeDenoter type) {
+        this.type = type;
+    }
 }

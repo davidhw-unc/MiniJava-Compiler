@@ -9,7 +9,7 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class Declaration extends AST implements Typed {
     public String name;
-    public TypeDenoter type;
+    protected TypeDenoter type;
 
     public Declaration(String name, TypeDenoter type, SourcePosition posn) {
         super(posn);
@@ -18,7 +18,12 @@ public abstract class Declaration extends AST implements Typed {
     }
 
     @Override
-    public TypeDenoter getAndCheckType(TypeDenoter... types) {
+    public TypeDenoter getType() {
         return type;
+    }
+
+    @Override
+    public void setType(TypeDenoter type) {
+        throw new UnsupportedOperationException("Cannot change the type of a declaration");
     }
 }
