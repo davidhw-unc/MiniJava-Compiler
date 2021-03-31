@@ -21,6 +21,7 @@ package miniJava.AbstractSyntaxTrees;
 public class ASTDisplay implements Visitor<String, Object> {
 
     public static boolean showPosition = false;
+    public static boolean showTypes = false;
 
     /**
      * print text representation of AST to stdout
@@ -273,6 +274,9 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitUnaryExpr(UnaryExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.operator.visit(this, indent(arg));
         expr.operand.visit(this, indent(indent(arg)));
         return null;
@@ -281,6 +285,9 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitBinaryExpr(BinaryExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.operator.visit(this, indent(arg));
         expr.left.visit(this, indent(indent(arg)));
         expr.right.visit(this, indent(indent(arg)));
@@ -290,21 +297,30 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitRefExpr(RefExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.ref.visit(this, indent(arg));
         return null;
     }
 
     @Override
-    public Object visitIxExpr(IxExpr ie, String arg) {
-        show(arg, ie);
-        ie.ref.visit(this, indent(arg));
-        ie.ixExpr.visit(this, indent(arg));
+    public Object visitIxExpr(IxExpr expr, String arg) {
+        show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
+        expr.ref.visit(this, indent(arg));
+        expr.ixExpr.visit(this, indent(arg));
         return null;
     }
 
     @Override
     public Object visitCallExpr(CallExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.methodRef.visit(this, indent(arg));
         ExprList al = expr.argList;
         show(arg, "  ExprList + [" + al.size() + "]");
@@ -318,6 +334,9 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitLiteralExpr(LiteralExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.lit.visit(this, indent(arg));
         return null;
     }
@@ -325,6 +344,9 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitNewArrayExpr(NewArrayExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.eltType.visit(this, indent(arg));
         expr.sizeExpr.visit(this, indent(arg));
         return null;
@@ -333,13 +355,19 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitNewObjectExpr(NewObjectExpr expr, String arg) {
         show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         expr.classtype.visit(this, indent(arg));
         return null;
     }
 
     @Override
-    public Object visitNullExpr(NullExpr n, String arg) {
-        show(arg, n);
+    public Object visitNullExpr(NullExpr expr, String arg) {
+        show(arg, expr);
+        if (showTypes) {
+            expr.getType().visit(this, indent(arg));
+        }
         return null;
     }
 
@@ -352,21 +380,30 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitThisRef(ThisRef ref, String arg) {
         show(arg, ref);
+        if (showTypes) {
+            ref.getType().visit(this, indent(arg));
+        }
         return null;
     }
 
     @Override
     public Object visitIdRef(IdRef ref, String arg) {
         show(arg, ref);
+        if (showTypes) {
+            ref.getType().visit(this, indent(arg));
+        }
         ref.getId().visit(this, indent(arg));
         return null;
     }
 
     @Override
-    public Object visitQRef(QualRef qr, String arg) {
-        show(arg, qr);
-        qr.getId().visit(this, indent(arg));
-        qr.prevRef.visit(this, indent(arg));
+    public Object visitQRef(QualRef ref, String arg) {
+        show(arg, ref);
+        if (showTypes) {
+            ref.getType().visit(this, indent(arg));
+        }
+        ref.getId().visit(this, indent(arg));
+        ref.prevRef.visit(this, indent(arg));
         return null;
     }
 
@@ -379,6 +416,9 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitIdentifier(Identifier id, String arg) {
         show(arg, quote(id.spelling) + " " + id.toString());
+        if (showTypes) {
+            id.getType().visit(this, indent(arg));
+        }
         return null;
     }
 
@@ -391,12 +431,18 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitIntLiteral(IntLiteral num, String arg) {
         show(arg, quote(num.spelling) + " " + num.toString());
+        if (showTypes) {
+            num.getType().visit(this, indent(arg));
+        }
         return null;
     }
 
     @Override
     public Object visitBooleanLiteral(BooleanLiteral bool, String arg) {
         show(arg, quote(bool.spelling) + " " + bool.toString());
+        if (showTypes) {
+            bool.getType().visit(this, indent(arg));
+        }
         return null;
     }
 }

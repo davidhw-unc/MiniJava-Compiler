@@ -25,29 +25,4 @@ public class BaseType extends TypeDenoter {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitBaseType(this, o);
     }
-
-    // TODO clean up
-    /*
-    
-    public static BaseType getType(TypeKind t) {
-        switch (t) {
-            case BOOLEAN:
-                return boolType;
-            case INT:
-                return intType;
-            case VOID:
-                return voidType;
-            case UNSUPPORTED:
-                return unsupportedType;
-            case ERROR:
-                return errorType;
-            default:
-                throw new IllegalArgumentException(t + " is not a valid TypeKind for a BaseType");
-        }
-    }
-    
-    private BaseType(TypeKind t) {
-        super(t, null);
-    }
-    */
 }

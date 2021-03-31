@@ -19,19 +19,4 @@ public class ReturnStmt extends Statement {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitReturnStmt(this, o);
     }
-
-    // TODO clean up
-    /*
-    private TypeDenoter type = null;
-    
-    @Override
-    public TypeDenoter getType() {
-        return type;
-    }
-    
-    @Override
-    public void setType(TypeDenoter type) {
-        this.type = type;
-    }
-    */
 }

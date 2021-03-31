@@ -594,7 +594,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Validate the operand type and set the UnaryExpression's type appropriately
         TypeDenoter exprType = func.apply(expr.operand.getType());
         if (exprType == null) {
-            error("Invalid operand type for unary operator " + expr.operator.spelling,
+            error("Type error - invalid operand type for unary operator " + expr.operator.spelling,
                     expr.operator.posn.line);
             exprType = generic_error_type;
         }
@@ -790,7 +790,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         if (decl == null) {
-            throw error("Identification error - could not find any declarations matching the name "
+            throw error("Identification error - no declarations matching the name "
                     + name, ref.getId().posn.line);
         }
 
@@ -839,7 +839,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
             } else { // Pointing to FieldDecl, VarDecl, or ParameterDecl
                 // Throw error if not referring to an object
-                if (ref.prevRef.getType() instanceof ClassType) {
+                if (!(ref.prevRef.getType() instanceof ClassType)) {
                     throw error("Identification error - attempted to access member of a"
                             + " non-object reference", ref.posn.line);
                 }

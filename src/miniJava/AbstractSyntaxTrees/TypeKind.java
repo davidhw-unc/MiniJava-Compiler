@@ -6,6 +6,5 @@
 package miniJava.AbstractSyntaxTrees;
 
 public enum TypeKind {
-    // TODO get rid of OPERATION
-    VOID, INT, BOOLEAN, CLASS, ARRAY, UNSUPPORTED, ERROR, OPERATION;
+    VOID, INT, BOOLEAN, CLASS, ARRAY, UNSUPPORTED, ERROR;
 }
