@@ -8,8 +8,11 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.Token;
 
 public class Operator extends Terminal {
+    public final int operandCount;
+
     public Operator(Token t, int operandCount) {
         super(t);
+        this.operandCount = operandCount;
     }
 
     @Override

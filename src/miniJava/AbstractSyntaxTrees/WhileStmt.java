@@ -8,6 +8,9 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class WhileStmt extends Statement {
+    public Expression cond;
+    public Statement body;
+
     public WhileStmt(Expression e, Statement s, SourcePosition posn) {
         super(posn);
         cond = e;
@@ -18,7 +21,4 @@ public class WhileStmt extends Statement {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitWhileStmt(this, o);
     }
-
-    public Expression cond;
-    public Statement body;
 }

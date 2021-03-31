@@ -8,6 +8,12 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class BaseType extends TypeDenoter {
+    public static final BaseType bool_dummy = new BaseType(TypeKind.BOOLEAN, null);
+    public static final BaseType int_dummy = new BaseType(TypeKind.INT, null);
+    public static final BaseType void_dummy = new BaseType(TypeKind.VOID, null);
+    public static final BaseType unsupported_dummy = new BaseType(TypeKind.UNSUPPORTED, null);
+    public static final BaseType error_dummy = new BaseType(TypeKind.ERROR, null);
+
     public BaseType(TypeKind t, SourcePosition posn) {
         super(t, posn);
         if (t == TypeKind.CLASS || t == TypeKind.ARRAY) {
@@ -22,11 +28,6 @@ public class BaseType extends TypeDenoter {
 
     // TODO clean up
     /*
-    private static final BaseType boolType = new BaseType(TypeKind.BOOLEAN);
-    private static final BaseType intType = new BaseType(TypeKind.INT);
-    private static final BaseType voidType = new BaseType(TypeKind.VOID);
-    private static final BaseType unsupportedType = new BaseType(TypeKind.UNSUPPORTED);
-    private static final BaseType errorType = new BaseType(TypeKind.ERROR);
     
     public static BaseType getType(TypeKind t) {
         switch (t) {
@@ -47,14 +48,6 @@ public class BaseType extends TypeDenoter {
     
     private BaseType(TypeKind t) {
         super(t, null);
-    }
-    */
-
-    // TODO clean up
-    /*
-    @Override
-    public boolean eq(TypeDenoter other) {
-        return (other instanceof BaseType) && (typeKind == other.typeKind);
     }
     */
 }

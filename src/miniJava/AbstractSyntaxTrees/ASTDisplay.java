@@ -116,7 +116,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitFieldDecl(FieldDecl f, String arg) {
         show(arg, "(" + (f.isPrivate ? "private" : "public") + (f.isStatic ? " static) " : ") ")
                 + f.toString());
-        f.type.visit(this, indent(arg));
+        f.getType().visit(this, indent(arg));
         show(indent(arg), quote(f.name) + " fieldname");
         return null;
     }
@@ -125,7 +125,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitMethodDecl(MethodDecl m, String arg) {
         show(arg, "(" + (m.isPrivate ? "private" : "public") + (m.isStatic ? " static) " : ") ")
                 + m.toString());
-        m.type.visit(this, indent(arg));
+        m.getType().visit(this, indent(arg));
         show(indent(arg), quote(m.name) + " methodname");
         ParameterDeclList pdl = m.parameterDeclList;
         show(arg, "  ParameterDeclList [" + pdl.size() + "]");
@@ -144,7 +144,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitParameterDecl(ParameterDecl pd, String arg) {
         show(arg, pd);
-        pd.type.visit(this, indent(arg));
+        pd.getType().visit(this, indent(arg));
         show(indent(arg), quote(pd.name) + "parametername ");
         return null;
     }
@@ -152,7 +152,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitVarDecl(VarDecl vd, String arg) {
         show(arg, vd);
-        vd.type.visit(this, indent(arg));
+        vd.getType().visit(this, indent(arg));
         show(indent(arg), quote(vd.name) + " varname");
         return null;
     }
@@ -222,7 +222,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitIxAssignStmt(IxAssignStmt stmt, String arg) {
         show(arg, stmt);
         stmt.ref.visit(this, indent(arg));
-        stmt.ix.visit(this, indent(arg));
+        stmt.ixExpr.visit(this, indent(arg));
         stmt.exp.visit(this, indent(arg));
         return null;
     }
@@ -274,7 +274,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitUnaryExpr(UnaryExpr expr, String arg) {
         show(arg, expr);
         expr.operator.visit(this, indent(arg));
-        expr.expr.visit(this, indent(indent(arg)));
+        expr.operand.visit(this, indent(indent(arg)));
         return null;
     }
 
@@ -305,7 +305,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitCallExpr(CallExpr expr, String arg) {
         show(arg, expr);
-        expr.functionRef.visit(this, indent(arg));
+        expr.methodRef.visit(this, indent(arg));
         ExprList al = expr.argList;
         show(arg, "  ExprList + [" + al.size() + "]");
         String pfx = arg + "  . ";
@@ -358,15 +358,15 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitIdRef(IdRef ref, String arg) {
         show(arg, ref);
-        ref.id.visit(this, indent(arg));
+        ref.getId().visit(this, indent(arg));
         return null;
     }
 
     @Override
     public Object visitQRef(QualRef qr, String arg) {
         show(arg, qr);
-        qr.id.visit(this, indent(arg));
-        qr.ref.visit(this, indent(arg));
+        qr.getId().visit(this, indent(arg));
+        qr.prevRef.visit(this, indent(arg));
         return null;
     }
 

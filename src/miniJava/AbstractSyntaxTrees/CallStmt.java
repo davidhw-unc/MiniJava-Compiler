@@ -8,6 +8,9 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class CallStmt extends Statement {
+    public Reference methodRef;
+    public ExprList argList;
+
     public CallStmt(Reference m, ExprList el, SourcePosition posn) {
         super(posn);
         methodRef = m;
@@ -18,7 +21,4 @@ public class CallStmt extends Statement {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitCallStmt(this, o);
     }
-
-    public Reference methodRef;
-    public ExprList argList;
 }

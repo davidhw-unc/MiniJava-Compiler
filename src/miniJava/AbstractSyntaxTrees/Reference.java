@@ -9,6 +9,7 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class Reference extends AST implements Typed {
     private TypeDenoter type;
+    private Identifier id;
 
     public Reference(SourcePosition posn) {
         super(posn);
@@ -22,5 +23,13 @@ public abstract class Reference extends AST implements Typed {
     @Override
     public void setType(TypeDenoter type) {
         this.type = type;
+    }
+
+    public Identifier getId() {
+        return id;
+    }
+
+    public void setId(Identifier id) {
+        this.id = id;
     }
 }

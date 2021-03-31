@@ -8,11 +8,9 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class IdRef extends BaseRef {
-    public Identifier id;
-
     public IdRef(Identifier id, SourcePosition posn) {
         super(posn);
-        this.id = id;
+        this.setId(id);
     }
 
     @Override

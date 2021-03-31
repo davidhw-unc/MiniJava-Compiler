@@ -19,7 +19,7 @@ abstract public class MemberDecl extends Declaration {
     }
 
     public MemberDecl(MemberDecl md, SourcePosition posn) {
-        super(md.name, md.type, posn);
+        super(md.name, md.getType(), posn);
         this.isPrivate = md.isPrivate;
         this.isStatic = md.isStatic;
     }

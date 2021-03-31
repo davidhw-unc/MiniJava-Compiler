@@ -8,6 +8,8 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class IxExpr extends Expression {
+    public Reference ref;
+    public Expression ixExpr;
 
     public IxExpr(Reference r, Expression e, SourcePosition posn) {
         super(posn);
@@ -19,8 +21,4 @@ public class IxExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitIxExpr(this, o);
     }
-
-    public Reference ref;
-    public Expression ixExpr;
-
 }

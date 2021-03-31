@@ -8,6 +8,10 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class IfStmt extends Statement {
+    public Expression cond;
+    public Statement thenStmt;
+    public Statement elseStmt;
+
     public IfStmt(Expression b, Statement t, Statement e, SourcePosition posn) {
         super(posn);
         cond = b;
@@ -26,8 +30,4 @@ public class IfStmt extends Statement {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitIfStmt(this, o);
     }
-
-    public Expression cond;
-    public Statement thenStmt;
-    public Statement elseStmt;
 }

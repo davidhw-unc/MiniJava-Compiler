@@ -9,7 +9,7 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class Declaration extends AST implements Typed {
     public String name;
-    protected TypeDenoter type;
+    private TypeDenoter type;
 
     public Declaration(String name, TypeDenoter type, SourcePosition posn) {
         super(posn);

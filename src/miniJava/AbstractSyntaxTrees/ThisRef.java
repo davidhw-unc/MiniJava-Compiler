@@ -12,18 +12,15 @@ public class ThisRef extends BaseRef {
         super(posn);
     }
 
-    // TODO clean up
-    /*
-    private ClassDecl decl;
-    
-    public Declaration getDecl() {
-        return decl;
+    @Override
+    public Identifier getId() {
+        throw new UnsupportedOperationException("Cannot retrieve the Identifier of a ThisRef");
     }
-    
-    protected void setDecl(ClassDecl decl) {
-        this.decl = decl;
+
+    @Override
+    public void setId(Identifier id) {
+        throw new UnsupportedOperationException("Cannot set the Identifier of a ThisRef");
     }
-    */
 
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
