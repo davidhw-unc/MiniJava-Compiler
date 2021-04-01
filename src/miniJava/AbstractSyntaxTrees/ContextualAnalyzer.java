@@ -49,19 +49,16 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     private ErrorReporter err;
 
     private ContextualAnalyzer(AST ast, ErrorReporter err) {
-        this.err = err;
-        try {
-            run(ast);
-        } catch (AnalysisError e) {
-        }
-    }
-
-    private void run(AST ast) {
         if (!(ast instanceof Package)) {
             throw new IllegalArgumentException("ast must have a Package as its root");
         }
 
-        ast.visit(this, new IdentificationTable());
+        this.err = err;
+
+        try {
+            ast.visit(this, new IdentificationTable());
+        } catch (AnalysisError e) {
+        }
     }
 
     // For fatal errors (identification errors), throw this function's return
@@ -92,7 +89,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                     && ((ClassType) b).className == null)
                     || (b.typeKind == TypeKind.ARRAY && a.typeKind == TypeKind.CLASS
                             && ((ClassType) a).className == null)) {
-                // null is also equal to array types
+                // null (which is stored as a ClassType with null className) is also equal to arrays
                 return true;
             }
             return false;
@@ -210,7 +207,40 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, table);
         }
+        
+        // Check to verify that a main method is present with the correct attributes and parameters
+        // If it is present, link the package's mainMethod field to it
+        // If it isn't present, throw an error
+        // Note: if there are multiple main methods in the package, this will stop after the first
+        // TODO verify where this should happen (and whether it should be before or after traversal)
+        for (Map<String, MemberDecl> map : table.publicMembers.values()) {
+            for (MemberDecl uncastDecl : map.values()) {
 
+                if (uncastDecl instanceof MethodDecl) {
+                    MethodDecl decl = (MethodDecl) uncastDecl;
+
+                    if (decl.isStatic && decl.parameterDeclList.size() == 1) {
+
+                        TypeDenoter uncastType = decl.parameterDeclList.get(0).getType();
+                        if (uncastType instanceof ArrayType) {
+                            ArrayType type = (ArrayType) uncastType;
+
+                            if (type.eltType instanceof ClassType
+                                    && ((ClassType) type.eltType).className.equals("String")) {
+                                // Found valid main method - can now store it & return safely
+                                prog.mainMethod = decl;
+                                return null;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no valid main method was ever found, throw an error
+        // TODO verify what line this error should cite
+        error("Error - Entry point \"public static void main(String[] args)\" not found in package",
+                prog.posn.line);
         return null;
     }
 
