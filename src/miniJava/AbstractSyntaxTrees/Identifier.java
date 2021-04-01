@@ -21,11 +21,7 @@ public class Identifier extends Terminal implements Typed {
     }
 
     public Declaration getDecl() {
-        if (decl != null) {
-            return decl;
-        }
-        throw new IllegalStateException("The Identifier at " + posn
-                + " has not yet been assigned a corresponding Declaration");
+        return decl;
     }
 
     protected void setDecl(Declaration decl) {

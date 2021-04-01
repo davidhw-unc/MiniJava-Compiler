@@ -25,7 +25,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         Map<String, ClassDecl> classes = new HashMap<>(); // Layer 1
         Map<String, MemberDecl> curMembers = new HashMap<>(); // Layer 2
         Deque<Map<String, LocalDecl>> curLocals = new ArrayDeque<>(); // Layer 3+
-        // Params are the first layer in the deque
+        // Params are the first layer in this deque
 
         Map<String, Map<String, MemberDecl>> publicMembers = new HashMap<>();
 
@@ -89,6 +89,13 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Deal with everything else
         if (a.typeKind != b.typeKind) {
+            if ((a.typeKind == TypeKind.ARRAY && b.typeKind == TypeKind.CLASS
+                    && ((ClassType) b).className == null)
+                    || (b.typeKind == TypeKind.ARRAY && a.typeKind == TypeKind.CLASS
+                            && ((ClassType) a).className == null)) {
+                // null is also equal to array types
+                return true;
+            }
             return false;
         }
         switch (a.typeKind) { // At this point we know a and b's typeKinds are the same
@@ -99,7 +106,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 return true;
             case CLASS:
                 // null className indicates that this is the "null" literal
-                return ((ClassType) a).className == null || ((ClassType) a).className == null
+                return ((ClassType) a).className == null || ((ClassType) b).className == null
                         || ((ClassType) a).getDecl() == ((ClassType) b).getDecl();
             case ARRAY:
                 return typeEq(((ArrayType) a).eltType, ((ArrayType) b).eltType);
@@ -161,9 +168,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 .add(new FieldDecl(false, true, new ClassType("_PrintStream", null), "out", null));
         ClassDecl printStreamClass = new ClassDecl("_PrintStream", new FieldDeclList(),
                 new MethodDeclList(), null);
-        printStreamClass.methodDeclList.add(new MethodDecl(
-                new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null),
-                new ParameterDeclList(), new StatementList(), null));
+        printStreamClass.methodDeclList.add(
+                new MethodDecl(new FieldDecl(false, false, BaseType.void_dummy, "println", null),
+                        new ParameterDeclList(), new StatementList(), null));
+        printStreamClass.methodDeclList.get(0).parameterDeclList
+                .add(new ParameterDecl(BaseType.int_dummy, "n", null));
         ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
                 null);
 
@@ -176,6 +185,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 throw error("Identification error - duplicate class declaration", c.posn.line);
             }
             table.classes.put(c.name, c);
+        }
+
+        // Construct lists of all public members of each class
+        for (ClassDecl c : table.classes.values()) {
             HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
             table.publicMembers.put(c.name, curPublicMembers);
             for (FieldDecl field : c.fieldDeclList) {
@@ -252,18 +265,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitMethodDecl(MethodDecl md, IdentificationTable table) {
-        // TODO remove this once the program is verified working
-        // Check that the param layer is present (and empty) on the deque (with no extra layers)
-        if (table.curLocals.size() != 1) {
-            throw new IllegalStateException(
-                    "Exepected exactly one layer in the curLocals deque, found "
-                            + table.curLocals.size());
-        }
-        if (table.curLocals.peek().size() != 0) {
-            throw new IllegalStateException(
-                    "There are old parameters left in curLocal's parameter layer");
-        }
-
         // Visit parameters
         for (ParameterDecl pd : md.parameterDeclList) {
             pd.visit(this, table);
@@ -480,7 +481,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // Make sure the array's element type and the value's type agree
-        // TODO double check this
         if (!typeEq(((ArrayType) stmt.ref.getType()).eltType, stmt.exp.getType())) {
             error("Type error - incompatible types in array element assignment", stmt.posn.line);
         }
@@ -577,8 +577,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
-    // TODO double check that these are all getting their types assigned
-
     private static final TypeDenoter generic_error_type = new BaseType(TypeKind.ERROR, null);
 
     @Override
@@ -617,7 +615,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Validate the operand types and set the UnaryExpression's type appropriately
         TypeDenoter exprType = func.apply(expr.left.getType(), expr.right.getType());
         if (exprType == null) {
-            error("Invalid operand type for unary operator " + expr.operator.spelling,
+            error("Invalid operand type for binary operator " + expr.operator.spelling,
                     expr.operator.posn.line);
             exprType = generic_error_type;
         }
@@ -651,26 +649,33 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Make sure the reference corresponds to an ArrayDecl
         if (expr.ref instanceof ThisRef) {
             error("Type error - cannot perform array access on \"this\"", expr.posn.line);
+            expr.setType(generic_error_type);
             return null;
-        }
-        Declaration refDecl = expr.ref.getId().getDecl();
-        if (refDecl instanceof ClassDecl) {
-            error("Type error - cannot perform array access on a class", expr.ref.posn.line);
-            return null;
-        }
-        if (refDecl instanceof MethodDecl) {
-            error("Type error - cannot perform array access on a method", expr.ref.posn.line);
-            return null;
-        }
-        if (!(expr.ref.getType() instanceof ArrayType)) {
-            error("Type error - cannot perform array access on a non-array type",
-                    expr.ref.posn.line);
-            return null;
+        } else {
+            Declaration refDecl = expr.ref.getId().getDecl();
+            if (refDecl instanceof ClassDecl) {
+                error("Type error - cannot perform array access on a class", expr.ref.posn.line);
+                expr.setType(generic_error_type);
+                return null;
+            }
+            if (refDecl instanceof MethodDecl) {
+                error("Type error - cannot perform array access on a method", expr.ref.posn.line);
+                expr.setType(generic_error_type);
+                return null;
+            }
+            if (!(expr.ref.getType() instanceof ArrayType)) {
+                error("Type error - cannot perform array access on a non-array type",
+                        expr.ref.posn.line);
+                expr.setType(generic_error_type);
+                return null;
+            }
         }
 
         // Make sure the indexing expression is of type int
         if (!typeEq(expr.ixExpr.getType(), BaseType.int_dummy)) {
             error("Type error - cannot index an array with a non-int value", expr.ixExpr.posn.line);
+            expr.setType(generic_error_type);
+            return null;
         }
 
         // Set type
@@ -734,10 +739,13 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitNullExpr(NullExpr expr, IdentificationTable table) {
         // NullExprs need to be valid in two places:
-        // - Equality checks against class types
-        // - Assignment statements to class types
-        // This is handled by typeEq - the NullExpr's TypeDenoter will be seen as equal to any
-        //     other class types
+        // - Equality checks against object* types
+        // - Assignment statements to object* types
+        //
+        // * Both classes and arrays are objects
+        //
+        // This is handled by typeEq - the NullExpr's TypeDenoter will be seen as equal to *any*
+        //     other object types
 
         // Set expr's type to a special ClassType with null className (and no decl)
         expr.setType(new ClassType(null, expr.posn));
@@ -758,6 +766,12 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Visit said TypeDenoter
         ref.getType().visit(this, table);
+
+        // Throw an error if this is in a static context
+        if (table.isStatic) {
+            error("Identification error - cannot reference \"this\" from a static context",
+                    ref.posn.line);
+        }
 
         return null;
     }
@@ -789,9 +803,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                     + " static context", ref.getId().posn.line);
         }
 
+        // Throw error if the name can't be found
         if (decl == null) {
-            throw error("Identification error - no declarations matching the name "
-                    + name, ref.getId().posn.line);
+            throw error("Identification error - no declarations matching the name " + name,
+                    ref.getId().posn.line);
         }
 
         // Record the matching declaration in the identifier
@@ -915,50 +930,61 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             case OR:
             case AND:
                 // Both operands must be of type boolean
+                // Produces a boolean
                 return (BinaryOperator<TypeDenoter>) (a,
                         b) -> (typeEq(a, BaseType.bool_dummy) && typeEq(b, BaseType.bool_dummy))
-                                ? ((a.typeKind == TypeKind.ERROR) ? a : b)
+                                ? BaseType.bool_dummy
                                 : null;
 
             case LESS_EQUAL:
             case LESS_THAN:
             case GREATER_THAN:
             case GREATER_EQUAL:
+                // Both operands must be of type int
+                // Produces a boolean
+                return (BinaryOperator<TypeDenoter>) (a,
+                        b) -> (typeEq(a, BaseType.int_dummy) && typeEq(b, BaseType.int_dummy))
+                                ? BaseType.bool_dummy
+                                : null;
             case PLUS:
             case MULTIPLY:
             case DIVIDE:
                 // Both operands must be of type int
+                // Produces an int
                 return (BinaryOperator<TypeDenoter>) (a,
                         b) -> (typeEq(a, BaseType.int_dummy) && typeEq(b, BaseType.int_dummy))
-                                ? ((a.typeKind == TypeKind.ERROR) ? a : b)
+                                ? BaseType.int_dummy
                                 : null;
 
             case EQUAL_TO:
             case NOT_EQUAL:
                 // The two operands just need to have the same type
-                return (BinaryOperator<TypeDenoter>) (a,
-                        b) -> (typeEq(a, b)) ? ((a.typeKind == TypeKind.ERROR) ? a : b) : null;
+                // Produces a boolean
+                return (BinaryOperator<TypeDenoter>) (a, b) -> (typeEq(a, b)) ? BaseType.bool_dummy
+                        : null;
 
             // Unary operator
             case NOT:
                 // The operand must be of type boolean
-                return (UnaryOperator<TypeDenoter>) (a) -> typeEq(a, BaseType.bool_dummy) ? a
-                        : null;
+                // Produces a boolean
+                return (UnaryOperator<TypeDenoter>) (
+                        a) -> typeEq(a, BaseType.bool_dummy) ? BaseType.bool_dummy : null;
 
             // Can be a unary or binary operator
             case MINUS:
                 switch (op.operandCount) {
                     case 2:
                         // Binary case - both operands must be of type int
+                        // Produces an int
                         return (BinaryOperator<TypeDenoter>) (a,
                                 b) -> (typeEq(a, BaseType.int_dummy)
-                                        && typeEq(b, BaseType.int_dummy))
-                                                ? ((a.typeKind == TypeKind.ERROR) ? a : b)
+                                        && typeEq(b, BaseType.int_dummy)) ? BaseType.int_dummy
                                                 : null;
                     case 1:
                         // Unary case - the operand must be of type int
-                        return (UnaryOperator<TypeDenoter>) (a) -> typeEq(a, BaseType.int_dummy) ? a
-                                : null;
+                        // Produces an int
+                        return (UnaryOperator<TypeDenoter>) (
+                                a) -> typeEq(a, BaseType.int_dummy) ? BaseType.int_dummy : null;
                 }
         }
 

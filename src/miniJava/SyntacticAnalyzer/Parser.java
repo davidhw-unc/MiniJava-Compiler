@@ -13,7 +13,7 @@ public class Parser {
     private Scanner scan;
     private ErrorReporter reporter;
 
-    private static final boolean trace = true;
+    public static boolean trace = false;
 
     public Parser(Scanner scanner, ErrorReporter reporter) {
         this.scan = scanner;
@@ -494,12 +494,7 @@ public class Parser {
             scan.pop();
             return kind;
         }
-        if (expectedTypes.length == 1) {
-            throw parseError(String.format("Expected %s but found %s at %s", expectedTypes[0],
-                    kind.toString(), token.posn));
-        }
-        throw parseError(String.format("Expected one of %s but found %s at %s",
-                Arrays.toString(expectedTypes), kind, token.posn));
+        throw parseError(String.format("Unexpected token %s at %s", kind, token.posn));
     }
 
     // advance only if the next token in input
