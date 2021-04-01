@@ -207,7 +207,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, table);
         }
-        
+
         // Check to verify that a main method is present with the correct attributes and parameters
         // If it is present, link the package's mainMethod field to it
         // If it isn't present, throw an error
@@ -467,6 +467,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         if (refDecl instanceof MethodDecl) {
             error("Type error - cannot reassign a method", stmt.ref.posn.line);
             return false;
+        }
+        if (stmt.ref instanceof QualRef
+                && ((QualRef) stmt.ref).getId().getDecl() == arrayLengthField) {
+            error("Cannot reassign an array's .length member", stmt.ref.posn.line);
         }
 
         // Note: Don't need to check static status, it gets checked when visiting the Reference
@@ -866,6 +870,9 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         return null;
     }
 
+    private FieldDecl arrayLengthField = new FieldDecl(false, false, BaseType.int_dummy, "length",
+            null);
+
     @Override
     public Object visitQRef(QualRef ref, IdentificationTable table) {
         // Visit the previous reference
@@ -878,7 +885,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         if (ref.prevRef instanceof ThisRef) { // Handle ThisRef
             lastClass = table.curClass;
 
-        } else { // Handle IdRef or QualRef
+        } else { // Handle IdRef, ArrayRef, or QualRef
             // Get lastDecl
             lastDecl = ref.prevRef.getId().getDecl();
 
@@ -898,19 +905,33 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 lastClass = (ClassDecl) lastDecl;
 
             } else { // Pointing to FieldDecl, VarDecl, or ParameterDecl
-                // Throw error if not referring to an object
-                if (!(ref.prevRef.getType() instanceof ClassType)) {
+
+                // Throw error if not referring to an object (arrays are allowed)
+                if (!(ref.prevRef.getType() instanceof ClassType
+                        || ref.prevRef.getType() instanceof ArrayType)) {
                     throw error("Identification error - attempted to access member of a"
                             + " non-object reference", ref.posn.line);
                 }
 
-                // Set lastClass
-                lastClass = ((ClassType) lastDecl.getType()).getDecl();
+                if (ref.prevRef.getType() instanceof ClassType) {
+                    // Set lastClass
+                    lastClass = ((ClassType) lastDecl.getType()).getDecl();
+                }
             }
         }
 
-        // Find declaration for this identifier
-        if (lastClass == table.curClass) {
+        if (ref.prevRef.getType() instanceof ArrayType) {
+            // Handle arrays (have .length field)
+            if (!ref.getId().spelling.equals("length")) {
+                // Throw error if the member's name is anything other than "length"
+                throw error("Identification error - no member called " + ref.getId().spelling
+                        + " in array objects", ref.getId().posn.line);
+            }
+
+            ref.getId().setDecl(arrayLengthField);
+
+        } else if (lastClass == table.curClass) {
+            // Find declaration for this identifier
             // Handle case where it's in the current class
             ref.getId().setDecl(table.curMembers.get(ref.getId().spelling));
             if (ref.getId().getDecl() == null) {

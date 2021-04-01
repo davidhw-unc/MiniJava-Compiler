@@ -16,6 +16,8 @@ class Test {
         dums[false] = null;
         dums[6] = 7;
         
+        dums.length = 42;
+        
         return null;
     }
 }

@@ -87,4 +87,8 @@ class Helper {
         
         return cache[n];
     }
+    
+    public int dummyTestMethod() {
+        return cache.length;
+    }
 }
