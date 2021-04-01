@@ -31,8 +31,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         ClassDecl curClass = null;
         TypeDenoter curMethodExpectedRet = null;
-        boolean stillNeedReturn = false;
-        boolean isStatic = false;
+        boolean isCurMethodStatic = false;
 
         IdentificationTable() {
             curLocals.add(new HashMap<>());
@@ -173,6 +172,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                         new ParameterDeclList(), new StatementList(), null));
         printStreamClass.methodDeclList.get(0).parameterDeclList
                 .add(new ParameterDecl(BaseType.int_dummy, "n", null));
+
         ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
                 null);
 
@@ -274,21 +274,19 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         md.getType().visit(this, table);
         table.curMethodExpectedRet = md.getType();
 
-        // Set the stillNeedReturn flag appropriately
-        table.stillNeedReturn = !typeEq(table.curMethodExpectedRet, BaseType.void_dummy);
-
         // Record whether this is a static method
-        table.isStatic = md.isStatic;
+        table.isCurMethodStatic = md.isStatic;
 
         // Visit each statement within the function
+        boolean isReturn = false;
         for (Statement s : md.statementList) {
-            s.visit(this, table);
+            isReturn = (boolean) s.visit(this, table);
         }
 
-        // Make sure a return statement was encountered (if needed)
-        if (table.stillNeedReturn) {
-            error("Type error - no return statement found in non-void method " + md.name,
-                    md.posn.line);
+        // Make sure a return statement was encountered at the end (if needed)
+        if (!typeEq(table.curMethodExpectedRet, BaseType.void_dummy) && !isReturn) {
+            error("Type error - no return statement found at the end of the non-void method "
+                    + md.name, md.posn.line);
         }
 
         // Clear the parameter layer's contents (should be only layer left)
@@ -377,6 +375,9 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     //
     ///////////////////////////////////////////////////////////////////////////////
 
+    // Note: for statements, the return is a Boolean where true indicates that the statment *always*
+    // ends with a return statement (if every path is taken and loops run a finite number of times)
+
     @Override
     public Object visitBlockStmt(BlockStmt stmt, IdentificationTable table) {
         // Create new frame on the curBlockLocals deque
@@ -384,14 +385,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         table.curLocals.push(new HashMap<>(table.curLocals.peek()));
 
         // Visit each statement within the block
+        boolean isReturn = false;
         for (Statement s : stmt.sl) {
-            s.visit(this, table);
+            isReturn = (boolean) s.visit(this, table);
         }
 
         // Remove this block's frame from the deque
         table.curLocals.pop();
 
-        return null;
+        // TODO verify whether the return actually has to be the *last* statement
+        // Return whether this block ended with a return statement
+        return isReturn;
     }
 
     @Override
@@ -408,7 +412,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                     stmt.varDecl.posn.line);
         }
 
-        return null;
+        // Return indication that this isn't a return statement
+        return false;
     }
 
     @Override
@@ -422,16 +427,16 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Make sure this is a reference that *can* be assigned
         if (stmt.ref instanceof ThisRef) {
             error("Type error - cannot reassign \"this\"", stmt.ref.posn.line);
-            return null;
+            return false;
         }
         Declaration refDecl = stmt.ref.getId().getDecl();
         if (refDecl instanceof ClassDecl) {
             error("Type error - cannot reassign a class", stmt.ref.posn.line);
-            return null;
+            return false;
         }
         if (refDecl instanceof MethodDecl) {
             error("Type error - cannot reassign a method", stmt.ref.posn.line);
-            return null;
+            return false;
         }
 
         // Note: Don't need to check static status, it gets checked when visiting the Reference
@@ -441,7 +446,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             error("Type error - incompatible types in variable assignment", stmt.posn.line);
         }
 
-        return null;
+        // Return indication that this isn't a return statement
+        return false;
     }
 
     @Override
@@ -458,21 +464,21 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Make sure this reference corresponds to an ArrayDecl
         if (stmt.ref instanceof ThisRef) {
             error("Type error - cannot perform array access on \"this\"", stmt.posn.line);
-            return null;
+            return false;
         }
         Declaration refDecl = stmt.ref.getId().getDecl();
         if (refDecl instanceof ClassDecl) {
             error("Type error - cannot perform array access on a class", stmt.ref.posn.line);
-            return null;
+            return false;
         }
         if (refDecl instanceof MethodDecl) {
             error("Type error - cannot perform array access on a method", stmt.ref.posn.line);
-            return null;
+            return false;
         }
         if (!(stmt.ref.getType() instanceof ArrayType)) {
             error("Type error - cannot perform array access on a non-array type",
                     stmt.ref.posn.line);
-            return null;
+            return false;
         }
 
         // Verify that the indexing Expression has type int
@@ -485,17 +491,18 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             error("Type error - incompatible types in array element assignment", stmt.posn.line);
         }
 
-        return null;
+        // Return indication that this isn't a return statement
+        return false;
     }
 
     @Override
     public Object visitCallStmt(CallStmt stmt, IdentificationTable table) {
         processCall(stmt.methodRef, stmt.argList, stmt.posn, table);
-
         // Note: No need to check the return type against anything,
         // as this is a function being called without its return being used
 
-        return null;
+        // Return indication that this isn't a return statement
+        return false;
     }
 
     @Override
@@ -526,10 +533,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             }
         }
 
-        // Mark that a return statement has been encountered
-        table.stillNeedReturn = false;
-
-        return null;
+        // Indicate that this *is* a return statement
+        return true;
     }
 
     @Override
@@ -544,14 +549,19 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // Visit thenStatement
-        stmt.thenStmt.visit(this, table);
+        boolean thenEndsInRet = (boolean) stmt.thenStmt.visit(this, table);
 
         // Visit elseStatement if present
         if (stmt.elseStmt != null) {
-            stmt.elseStmt.visit(this, table);
+            boolean elseEndsInRet = (boolean) stmt.elseStmt.visit(this, table);
+
+            // Use return to indicate whether this if statement *always* ends in a return
+            // (this assumes both branches are possible)
+            return thenEndsInRet && elseEndsInRet;
         }
 
-        return null;
+        // Without an else statment, the if statment cannot always end in a return
+        return false;
     }
 
     @Override
@@ -566,9 +576,14 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // Visit body
-        stmt.body.visit(this, table);
+        boolean bodyEndsInRet = (boolean) stmt.body.visit(this, table);
 
-        return null;
+        // TODO revisit
+        // Note: Java *allows* a method which will never return to not have any return statment,
+        // even if the method indicates a non-void return type.
+        // However, it's not possible to verify at compile time that a method will never return,
+        // so I'm going to only return true here if the loop's body *always* ends in a return.
+        return bodyEndsInRet;
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -768,7 +783,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ref.getType().visit(this, table);
 
         // Throw an error if this is in a static context
-        if (table.isStatic) {
+        if (table.isCurMethodStatic) {
             error("Identification error - cannot reference \"this\" from a static context",
                     ref.posn.line);
         }
@@ -797,7 +812,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // If the current context is static, make sure the indicted decl is as well
-        if (table.isStatic && (decl != null) && (decl instanceof MemberDecl)
+        if (table.isCurMethodStatic && (decl != null) && (decl instanceof MemberDecl)
                 && (!((MemberDecl) decl).isStatic)) {
             throw error("Identification error - cannot reference a non-static member from a"
                     + " static context", ref.getId().posn.line);
