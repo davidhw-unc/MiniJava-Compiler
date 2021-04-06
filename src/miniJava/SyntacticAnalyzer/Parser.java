@@ -163,7 +163,7 @@ public class Parser {
                     ref = new IdRef(new Identifier(original), posn);
                     break;
                 case THIS:
-                    ref = new ThisRef(posn);
+                    ref = new ThisRef(original);
                     break;
             }
         } else {
