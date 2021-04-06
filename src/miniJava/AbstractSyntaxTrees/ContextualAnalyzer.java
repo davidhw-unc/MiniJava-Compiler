@@ -33,6 +33,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         TypeDenoter curMethodExpectedRet = null;
         boolean stillNeedReturn = false;
         boolean isStatic = false;
+        VarDecl activeVarDecl = null;
 
         IdentificationTable() {
             curLocals.add(new HashMap<>());
@@ -396,11 +397,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitVarDeclStmt(VarDeclStmt stmt, IdentificationTable table) {
+        // Visit the VarDecl *before* the Expression - this will add it to the table
+        stmt.varDecl.visit(this, table);
+
+        // Record this VarDecl as the activeVarDecl in the table
+        table.activeVarDecl = stmt.varDecl;
+
         // Visit the Expression
         stmt.initExp.visit(this, table);
 
-        // Visit the VarDecl *after* the Expression - this will add it to the table
-        stmt.varDecl.visit(this, table);
+        // Clear activeVarDecl
+        table.activeVarDecl = null;
 
         // Check type equality
         if (!typeEq(stmt.initExp.getType(), stmt.varDecl.getType())) {
@@ -824,8 +831,15 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // First check layer 3+
         Declaration decl = table.curLocals.peek().get(name);
 
-        // If not found in layer 3+, check layer 2
-        if (decl == null) {
+        if (decl != null) {
+            // If found in layer 3+, make sure it isn't currently being initialized
+            if (decl == table.activeVarDecl) {
+                error("Identification error - cannot reference a variable in its own initializer",
+                        ref.posn.line);
+            }
+
+        } else {
+            // If not found in layer 3+, check layer 2
             decl = table.curMembers.get(name);
 
             // If not found in layer 2, check layer 1
