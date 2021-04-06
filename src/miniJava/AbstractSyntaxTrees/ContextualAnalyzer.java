@@ -917,7 +917,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Find declaration for this identifier
         if (lastClass == table.curClass) {
-            // Handle case where it's in the current class
+            // Handle case where it's in the current class (allow access to private members)
             ref.getId().setDecl(table.curMembers.get(ref.getId().spelling));
             if (ref.getId().getDecl() == null) {
                 throw error(
@@ -926,18 +926,18 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                         ref.getId().posn.line);
             }
         } else {
-            // Handle case where it's in a different class
+            // Handle case where it's in a different class (only allow access to public members)
             ref.getId().setDecl(table.publicMembers.get(lastClass.name).get(ref.getId().spelling));
             if (ref.getId().getDecl() == null) {
                 throw error("Identification error - no public member called " + ref.getId().spelling
                         + " in " + lastClass.name, ref.getId().posn.line);
             }
+        }
 
-            // Make sure this isn't an illegal non-static access
-            if (!allowNonStatic && !((MemberDecl) ref.getId().getDecl()).isStatic) {
-                throw error("Identification error - attempted to access nonstatic member from"
-                        + " a static context", ref.getId().posn.line);
-            }
+        // Make sure this isn't an illegal non-static access
+        if (!allowNonStatic && !((MemberDecl) ref.getId().getDecl()).isStatic) {
+            throw error("Identification error - attempted to access nonstatic member from"
+                    + " a static context", ref.getId().posn.line);
         }
 
         // Visit this identifier
