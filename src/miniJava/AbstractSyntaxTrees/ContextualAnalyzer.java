@@ -649,9 +649,29 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Note: I don't think I need to make sure this reference isn't a class or method-
         // whatever is enclosing this expression should catch that
+        /* Follow-up note: I was wrong - case in point:
+        class fail335 {     
+            public static void main(String[] args) {
+                F02 c = F02;
+            }
+        }
+        class F02 {
+            public int x;
+        }
+        */
 
-        // Set the Expression's type to the type of the reference
-        expr.setType(expr.ref.getType());
+        // Make sure this reference isn't a class or method
+        if (expr.ref.getId().getDecl() instanceof ClassDecl) {
+            error("Type error - cannot refer directly to a class", expr.ref.posn.line);
+            expr.setType(generic_error_type);
+        } else if (expr.ref.getId().getDecl() instanceof MethodDecl) {
+            error("Type error - cannot refer directly to a method identifier", expr.ref.posn.line);
+            expr.setType(generic_error_type);
+        } else {
+
+            // Set the Expression's type to the type of the reference
+            expr.setType(expr.ref.getType());
+        }
 
         return null;
     }
@@ -845,7 +865,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ref.prevRef.visit(this, table);
 
         boolean allowNonStatic = true;
-        Declaration lastDecl = null;
         ClassDecl lastClass = null;
 
         if (ref.prevRef instanceof ThisRef) { // Handle ThisRef
@@ -853,7 +872,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         } else { // Handle IdRef or QualRef
             // Get lastDecl
-            lastDecl = ref.prevRef.getId().getDecl();
+            Declaration lastDecl = ref.prevRef.getId().getDecl();
 
             if (lastDecl instanceof MethodDecl) {
                 // If lastRef is pointing to a method, error
