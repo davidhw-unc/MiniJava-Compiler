@@ -546,9 +546,21 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Visit thenStatement
         stmt.thenStmt.visit(this, table);
 
+        // Report an error if the thenStatement is just a variable declaration
+        if (stmt.thenStmt instanceof VarDeclStmt) {
+            error("A variable declaration cannot be the solitary statement in a branch of a"
+                    + " conditional statement", stmt.thenStmt.posn.line);
+        }
+
         // Visit elseStatement if present
         if (stmt.elseStmt != null) {
             stmt.elseStmt.visit(this, table);
+
+            // Report an error if the elseStatement is just a variable declaration
+            if (stmt.elseStmt instanceof VarDeclStmt) {
+                error("A variable declaration cannot be the solitary statement in a branch of a"
+                        + " conditional statement", stmt.thenStmt.posn.line);
+            }
         }
 
         return null;
@@ -567,6 +579,12 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Visit body
         stmt.body.visit(this, table);
+
+        // Report an error if the body is just a variable declaration
+        if (stmt.body instanceof VarDeclStmt) {
+            error("A variable declaration cannot be the solitary statement in a branch of a"
+                    + " conditional statement", stmt.body.posn.line);
+        }
 
         return null;
     }

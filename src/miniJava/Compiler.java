@@ -57,7 +57,6 @@ public class Compiler {
         return 0;
     }
 
-    @SuppressWarnings("unused")
     public static int runParserAlone(InputStream iStream) {
         ErrorReporter reporter = new ErrorReporter();
         Parser parser = new Parser(new Scanner(iStream, reporter), reporter);
