@@ -32,6 +32,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ClassDecl curClass = null;
         TypeDenoter curMethodExpectedRet = null;
         boolean isCurMethodStatic = false;
+        boolean stillNeedReturn = false;
+        VarDecl activeVarDecl = null;
+
+        boolean curInInitialPass = false;
 
         IdentificationTable() {
             curLocals.add(new HashMap<>());
@@ -184,23 +188,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             table.classes.put(c.name, c);
         }
 
-        // Construct lists of all public members of each class
-        for (ClassDecl c : table.classes.values()) {
-            HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
-            table.publicMembers.put(c.name, curPublicMembers);
-            for (FieldDecl field : c.fieldDeclList) {
-                if (!field.isPrivate) {
-                    curPublicMembers.put(field.name, field);
-                }
-            }
-            for (MethodDecl method : c.methodDeclList) {
-                if (!method.isPrivate) {
-                    curPublicMembers.put(method.name, method);
-                }
-            }
+        // Perform initial pass to get member types assigned (and nothing else!)
+        table.curInInitialPass = true;
+        systemClass.visit(this, table);
+        printStreamClass.visit(this, table);
+        stringClass.visit(this, table);
+        for (ClassDecl c : prog.classDeclList) {
+            c.visit(this, table);
         }
+        table.curInInitialPass = false;
 
-        // Analyze each class
+        // Perform main pass for each class
         systemClass.visit(this, table);
         printStreamClass.visit(this, table);
         stringClass.visit(this, table);
@@ -212,7 +210,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // If it is present, link the package's mainMethod field to it
         // If it isn't present, throw an error
         // Note: if there are multiple main methods in the package, this will stop after the first
-        // TODO verify where this should happen (and whether it should be before or after traversal)
         for (Map<String, MemberDecl> map : table.publicMembers.values()) {
             for (MemberDecl uncastDecl : map.values()) {
 
@@ -254,39 +251,66 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitClassDecl(ClassDecl cd, IdentificationTable table) {
-        // Record all members in the table
-        table.curMembers.clear();
-        for (FieldDecl field : cd.fieldDeclList) {
-            if (table.curMembers.containsKey(field.name)) {
-                throw error("Identification error - duplicate member name", field.posn.line);
+        if (table.curInInitialPass) { // First pass
+            // Add all public members to the table's publicMembers map
+            HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
+            table.publicMembers.put(cd.name, curPublicMembers);
+            for (FieldDecl field : cd.fieldDeclList) {
+                if (!field.isPrivate) {
+                    curPublicMembers.put(field.name, field);
+                }
             }
-            table.curMembers.put(field.name, field);
-        }
-        for (MethodDecl method : cd.methodDeclList) {
-            if (table.curMembers.containsKey(method.name)) {
-                throw error("Identification error - duplicate member name", method.posn.line);
+            for (MethodDecl method : cd.methodDeclList) {
+                if (!method.isPrivate) {
+                    curPublicMembers.put(method.name, method);
+                }
             }
-            table.curMembers.put(method.name, method);
-        }
 
-        // Save this ClassDecl's reference so that ClassTypes can be made for ThisRefs
-        table.curClass = cd;
+            // Perform first-pass visitation to all members
+            for (FieldDecl field : cd.fieldDeclList) {
+                // This is the ONLY time fields will be visited!
+                field.visit(this, table);
+            }
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
 
-        // Visit each field & method
-        for (FieldDecl field : cd.fieldDeclList) {
-            field.visit(this, table);
-        }
-        for (MethodDecl method : cd.methodDeclList) {
-            method.visit(this, table);
-        }
+        } else { // Primary pass
+            // Record all members in the table's curMembers deque
+            table.curMembers.clear();
+            for (FieldDecl field : cd.fieldDeclList) {
+                if (table.curMembers.containsKey(field.name)) {
+                    throw error("Identification error - duplicate member name", field.posn.line);
+                }
+                table.curMembers.put(field.name, field);
+            }
+            for (MethodDecl method : cd.methodDeclList) {
+                if (table.curMembers.containsKey(method.name)) {
+                    throw error("Identification error - duplicate member name", method.posn.line);
+                }
+                table.curMembers.put(method.name, method);
+            }
 
-        // Note: Classes don't have a type, despite technically implementing Typed
+            // Save this ClassDecl's reference so that ClassTypes can be made for ThisRefs
+            table.curClass = cd;
+
+            // Visit each method for the primary pass - do NOT need to visit fields again
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
+        }
 
         return null;
     }
 
     @Override
     public Object visitFieldDecl(FieldDecl fd, IdentificationTable table) {
+        // FieldDecls should ONLY be visited during the first pass!
+        if (!table.curInInitialPass) {
+            throw new IllegalStateException(
+                    "FieldDecls should ONLY be visited during the first pass!");
+        }
+
         // Visit the TypeDenoter
         fd.getType().visit(this, table);
 
@@ -295,32 +319,41 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitMethodDecl(MethodDecl md, IdentificationTable table) {
-        // Visit parameters
-        for (ParameterDecl pd : md.parameterDeclList) {
-            pd.visit(this, table);
+        if (table.curInInitialPass) { // First pass
+
+            // Visit return type
+            md.getType().visit(this, table);
+
+        } else { // Primary pass
+            // Visit parameters
+            for (ParameterDecl pd : md.parameterDeclList) {
+                pd.visit(this, table);
+            }
+
+            // Record expected return type so that return statements can be properly checked
+            table.curMethodExpectedRet = md.getType();
+
+            // Set the stillNeedReturn flag appropriately
+            table.stillNeedReturn = !typeEq(table.curMethodExpectedRet, BaseType.void_dummy);
+
+            // Record whether this is a static method
+            table.isCurMethodStatic = md.isStatic;
+
+            // Visit each statement within the function
+            boolean isReturn = false;
+            for (Statement s : md.statementList) {
+                isReturn = (boolean) s.visit(this, table);
+            }
+
+            // Make sure a return statement was encountered at the end (if needed)
+            if (!typeEq(table.curMethodExpectedRet, BaseType.void_dummy) && !isReturn) {
+                error("Type error - no return statement found at the end of the non-void method "
+                        + md.name, md.posn.line);
+            }
+
+            // Clear the parameter layer's contents (should be only layer left)
+            table.curLocals.peek().clear();
         }
-
-        // Visit & record expected return type so that return statements can be properly checked
-        md.getType().visit(this, table);
-        table.curMethodExpectedRet = md.getType();
-
-        // Record whether this is a static method
-        table.isCurMethodStatic = md.isStatic;
-
-        // Visit each statement within the function
-        boolean isReturn = false;
-        for (Statement s : md.statementList) {
-            isReturn = (boolean) s.visit(this, table);
-        }
-
-        // Make sure a return statement was encountered at the end (if needed)
-        if (!typeEq(table.curMethodExpectedRet, BaseType.void_dummy) && !isReturn) {
-            error("Type error - no return statement found at the end of the non-void method "
-                    + md.name, md.posn.line);
-        }
-
-        // Clear the parameter layer's contents (should be only layer left)
-        table.curLocals.peek().clear();
 
         return null;
     }
@@ -430,11 +463,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitVarDeclStmt(VarDeclStmt stmt, IdentificationTable table) {
+        // Visit the VarDecl *before* the Expression - this will add it to the table
+        stmt.varDecl.visit(this, table);
+
+        // Record this VarDecl as the activeVarDecl in the table
+        table.activeVarDecl = stmt.varDecl;
+
         // Visit the Expression
         stmt.initExp.visit(this, table);
 
-        // Visit the VarDecl *after* the Expression - this will add it to the table
-        stmt.varDecl.visit(this, table);
+        // Clear activeVarDecl
+        table.activeVarDecl = null;
 
         // Check type equality
         if (!typeEq(stmt.initExp.getType(), stmt.varDecl.getType())) {
@@ -585,16 +624,28 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Visit thenStatement
         boolean thenEndsInRet = (boolean) stmt.thenStmt.visit(this, table);
 
+        // Report an error if the thenStatement is just a variable declaration
+        if (stmt.thenStmt instanceof VarDeclStmt) {
+            error("A variable declaration cannot be the solitary statement in a branch of a"
+                    + " conditional statement", stmt.thenStmt.posn.line);
+        }
+
         // Visit elseStatement if present
         if (stmt.elseStmt != null) {
             boolean elseEndsInRet = (boolean) stmt.elseStmt.visit(this, table);
+
+            // Report an error if the elseStatement is just a variable declaration
+            if (stmt.elseStmt instanceof VarDeclStmt) {
+                error("A variable declaration cannot be the solitary statement in a branch of a"
+                        + " conditional statement", stmt.thenStmt.posn.line);
+            }
 
             // Use return to indicate whether this if statement *always* ends in a return
             // (this assumes both branches are possible)
             return thenEndsInRet && elseEndsInRet;
         }
 
-        // Without an else statment, the if statment cannot always end in a return
+        // Without an else statement, the if statement cannot always end in a return
         return false;
     }
 
@@ -612,8 +663,14 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Visit body
         boolean bodyEndsInRet = (boolean) stmt.body.visit(this, table);
 
+        // Report an error if the body is just a variable declaration
+        if (stmt.body instanceof VarDeclStmt) {
+            error("A variable declaration cannot be the solitary statement in a branch of a"
+                    + " conditional statement", stmt.body.posn.line);
+        }
+
         // TODO revisit
-        // Note: Java *allows* a method which will never return to not have any return statment,
+        // Note: Java *allows* a method which will never return to not have any return statement,
         // even if the method indicates a non-void return type.
         // However, it's not possible to verify at compile time that a method will never return,
         // so I'm going to only return true here if the loop's body *always* ends in a return.
@@ -680,9 +737,29 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         // Note: I don't think I need to make sure this reference isn't a class or method-
         // whatever is enclosing this expression should catch that
+        /* Follow-up note: I was wrong - case in point:
+        class fail335 {     
+            public static void main(String[] args) {
+                F02 c = F02;
+            }
+        }
+        class F02 {
+            public int x;
+        }
+        */
 
-        // Set the Expression's type to the type of the reference
-        expr.setType(expr.ref.getType());
+        // Make sure this reference isn't a class or method
+        if (expr.ref.getId().getDecl() instanceof ClassDecl) {
+            error("Type error - cannot refer directly to a class", expr.ref.posn.line);
+            expr.setType(generic_error_type);
+        } else if (expr.ref.getId().getDecl() instanceof MethodDecl) {
+            error("Type error - cannot refer directly to a method identifier", expr.ref.posn.line);
+            expr.setType(generic_error_type);
+        } else {
+
+            // Set the Expression's type to the type of the reference
+            expr.setType(expr.ref.getType());
+        }
 
         return null;
     }
@@ -835,8 +912,15 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // First check layer 3+
         Declaration decl = table.curLocals.peek().get(name);
 
-        // If not found in layer 3+, check layer 2
-        if (decl == null) {
+        if (decl != null) {
+            // If found in layer 3+, make sure it isn't currently being initialized
+            if (decl == table.activeVarDecl) {
+                error("Identification error - cannot reference a variable in its own initializer",
+                        ref.posn.line);
+            }
+
+        } else {
+            // If not found in layer 3+, check layer 2
             decl = table.curMembers.get(name);
 
             // If not found in layer 2, check layer 1
@@ -873,13 +957,13 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     private FieldDecl arrayLengthField = new FieldDecl(false, false, BaseType.int_dummy, "length",
             null);
 
+    @SuppressWarnings("null")
     @Override
     public Object visitQRef(QualRef ref, IdentificationTable table) {
         // Visit the previous reference
         ref.prevRef.visit(this, table);
 
         boolean allowNonStatic = true;
-        Declaration lastDecl = null;
         ClassDecl lastClass = null;
 
         if (ref.prevRef instanceof ThisRef) { // Handle ThisRef
@@ -887,7 +971,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
         } else { // Handle IdRef, ArrayRef, or QualRef
             // Get lastDecl
-            lastDecl = ref.prevRef.getId().getDecl();
+            Declaration lastDecl = ref.prevRef.getId().getDecl();
 
             if (lastDecl instanceof MethodDecl) {
                 // If lastRef is pointing to a method, error
@@ -920,6 +1004,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             }
         }
 
+        // Note: Eclipse warns that lastClass can be null here.
+        //  This will only happen when the previous ref in the chain was pointing to an array,
+        //      which is handled in this first if block.
+        //  This means that lastClass shouldn't be accessed while it's null, so I felt safe adding
+        //      the @SuppressWarnings("null") annotation to this method.
         if (ref.prevRef.getType() instanceof ArrayType) {
             // Handle arrays (have .length field)
             if (!ref.getId().spelling.equals("length")) {
@@ -941,18 +1030,18 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                         ref.getId().posn.line);
             }
         } else {
-            // Handle case where it's in a different class
+            // Handle case where it's in a different class (only allow access to public members)
             ref.getId().setDecl(table.publicMembers.get(lastClass.name).get(ref.getId().spelling));
             if (ref.getId().getDecl() == null) {
                 throw error("Identification error - no public member called " + ref.getId().spelling
                         + " in " + lastClass.name, ref.getId().posn.line);
             }
+        }
 
-            // Make sure this isn't an illegal non-static access
-            if (!allowNonStatic && !((MemberDecl) ref.getId().getDecl()).isStatic) {
-                throw error("Identification error - attempted to access nonstatic member from"
-                        + " a static context", ref.getId().posn.line);
-            }
+        // Make sure this isn't an illegal non-static access
+        if (!allowNonStatic && !((MemberDecl) ref.getId().getDecl()).isStatic) {
+            throw error("Identification error - attempted to access nonstatic member from"
+                    + " a static context", ref.getId().posn.line);
         }
 
         // Visit this identifier

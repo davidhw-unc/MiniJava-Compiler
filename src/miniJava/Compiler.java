@@ -14,10 +14,10 @@ import miniJava.SyntacticAnalyzer.Scanner;
 
 public class Compiler {
     public static void main(String[] args) {
-        System.exit(runOnFile(args[0]));
+        System.exit(runOnFile(args[0], false));
     }
 
-    public static int runOnFile(String path) {
+    public static int runOnFile(String path, boolean displayTree) {
         ASTDisplay.showPosition = false;
         ASTDisplay.showTypes = false;
 
@@ -25,7 +25,7 @@ public class Compiler {
         try {
             iStream = new FileInputStream(path);
 
-            return runParserWithContextualAnalysis(iStream);
+            return runParserWithContextualAnalysis(iStream, displayTree);
 
         } catch (FileNotFoundException e) {
             System.err.printf("Attempted to open %s, but file could not be read. "
@@ -38,7 +38,7 @@ public class Compiler {
     // These methods each return the intended exit code
     // (Done this way for testing purposes)
 
-    public static int runParserWithContextualAnalysis(InputStream iStream) {
+    public static int runParserWithContextualAnalysis(InputStream iStream, boolean displayTree) {
         ErrorReporter reporter = new ErrorReporter();
         Parser parser = new Parser(new Scanner(iStream, reporter), reporter);
         AST ast = parser.parse();
@@ -52,8 +52,10 @@ public class Compiler {
         }
 
         System.out.println("valid miniJava program");
-        ASTDisplay display = new ASTDisplay();
-        display.showTree(ast);
+        if (displayTree) {
+            ASTDisplay display = new ASTDisplay();
+            display.showTree(ast);
+        }
         return 0;
     }
 

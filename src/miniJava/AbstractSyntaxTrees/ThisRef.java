@@ -5,16 +5,13 @@
  */
 package miniJava.AbstractSyntaxTrees;
 
-import miniJava.SyntacticAnalyzer.SourcePosition;
+import miniJava.SyntacticAnalyzer.Token;
 
 public class ThisRef extends BaseRef {
-    public ThisRef(SourcePosition posn) {
-        super(posn);
-    }
-
-    @Override
-    public Identifier getId() {
-        throw new UnsupportedOperationException("Cannot retrieve the Identifier of a ThisRef");
+    public ThisRef(Token token) {
+        super(token.posn);
+        super.setId(new Identifier(token));
+        // super.setId(new Identifier(new Token(Token.Kind.THIS, "this", posn.line, posn.startColumn)));
     }
 
     @Override
