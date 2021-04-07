@@ -35,6 +35,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         boolean isStatic = false;
         VarDecl activeVarDecl = null;
 
+        boolean curInInitialPass = false;
+
         IdentificationTable() {
             curLocals.add(new HashMap<>());
         }
@@ -188,23 +190,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             table.classes.put(c.name, c);
         }
 
-        // Construct lists of all public members of each class
-        for (ClassDecl c : table.classes.values()) {
-            HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
-            table.publicMembers.put(c.name, curPublicMembers);
-            for (FieldDecl field : c.fieldDeclList) {
-                if (!field.isPrivate) {
-                    curPublicMembers.put(field.name, field);
-                }
-            }
-            for (MethodDecl method : c.methodDeclList) {
-                if (!method.isPrivate) {
-                    curPublicMembers.put(method.name, method);
-                }
-            }
+        // Perform initial pass to get member types assigned (and nothing else!)
+        table.curInInitialPass = true;
+        systemClass.visit(this, table);
+        printStreamClass.visit(this, table);
+        stringClass.visit(this, table);
+        for (ClassDecl c : prog.classDeclList) {
+            c.visit(this, table);
         }
+        table.curInInitialPass = false;
 
-        // Analyze each class
+        // Perform main pass for each class
         systemClass.visit(this, table);
         printStreamClass.visit(this, table);
         stringClass.visit(this, table);
@@ -225,39 +221,66 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitClassDecl(ClassDecl cd, IdentificationTable table) {
-        // Record all members in the table
-        table.curMembers.clear();
-        for (FieldDecl field : cd.fieldDeclList) {
-            if (table.curMembers.containsKey(field.name)) {
-                throw error("Identification error - duplicate member name", field.posn.line);
+        if (table.curInInitialPass) { // First pass
+            // Add all public members to the table's publicMembers map
+            HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
+            table.publicMembers.put(cd.name, curPublicMembers);
+            for (FieldDecl field : cd.fieldDeclList) {
+                if (!field.isPrivate) {
+                    curPublicMembers.put(field.name, field);
+                }
             }
-            table.curMembers.put(field.name, field);
-        }
-        for (MethodDecl method : cd.methodDeclList) {
-            if (table.curMembers.containsKey(method.name)) {
-                throw error("Identification error - duplicate member name", method.posn.line);
+            for (MethodDecl method : cd.methodDeclList) {
+                if (!method.isPrivate) {
+                    curPublicMembers.put(method.name, method);
+                }
             }
-            table.curMembers.put(method.name, method);
-        }
 
-        // Save this ClassDecl's reference so that ClassTypes can be made for ThisRefs
-        table.curClass = cd;
+            // Perform first-pass visitation to all members
+            for (FieldDecl field : cd.fieldDeclList) {
+                // This is the ONLY time fields will be visited!
+                field.visit(this, table);
+            }
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
 
-        // Visit each field & method
-        for (FieldDecl field : cd.fieldDeclList) {
-            field.visit(this, table);
-        }
-        for (MethodDecl method : cd.methodDeclList) {
-            method.visit(this, table);
-        }
+        } else { // Primary pass
+            // Record all members in the table's curMembers deque
+            table.curMembers.clear();
+            for (FieldDecl field : cd.fieldDeclList) {
+                if (table.curMembers.containsKey(field.name)) {
+                    throw error("Identification error - duplicate member name", field.posn.line);
+                }
+                table.curMembers.put(field.name, field);
+            }
+            for (MethodDecl method : cd.methodDeclList) {
+                if (table.curMembers.containsKey(method.name)) {
+                    throw error("Identification error - duplicate member name", method.posn.line);
+                }
+                table.curMembers.put(method.name, method);
+            }
 
-        // Note: Classes don't have a type, despite technically implementing Typed
+            // Save this ClassDecl's reference so that ClassTypes can be made for ThisRefs
+            table.curClass = cd;
+
+            // Visit each method for the primary pass - do NOT need to visit fields again
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
+        }
 
         return null;
     }
 
     @Override
     public Object visitFieldDecl(FieldDecl fd, IdentificationTable table) {
+        // FieldDecls should ONLY be visited during the first pass!
+        if (!table.curInInitialPass) {
+            throw new IllegalStateException(
+                    "FieldDecls should ONLY be visited during the first pass!");
+        }
+
         // Visit the TypeDenoter
         fd.getType().visit(this, table);
 
@@ -266,34 +289,40 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitMethodDecl(MethodDecl md, IdentificationTable table) {
-        // Visit parameters
-        for (ParameterDecl pd : md.parameterDeclList) {
-            pd.visit(this, table);
+        if (table.curInInitialPass) { // First pass
+
+            // Visit return type
+            md.getType().visit(this, table);
+
+        } else { // Primary pass
+            // Visit parameters
+            for (ParameterDecl pd : md.parameterDeclList) {
+                pd.visit(this, table);
+            }
+
+            // Record expected return type so that return statements can be properly checked
+            table.curMethodExpectedRet = md.getType();
+
+            // Set the stillNeedReturn flag appropriately
+            table.stillNeedReturn = !typeEq(table.curMethodExpectedRet, BaseType.void_dummy);
+
+            // Record whether this is a static method
+            table.isStatic = md.isStatic;
+
+            // Visit each statement within the function
+            for (Statement s : md.statementList) {
+                s.visit(this, table);
+            }
+
+            // Make sure a return statement was encountered (if needed)
+            if (table.stillNeedReturn) {
+                error("Type error - no return statement found in non-void method " + md.name,
+                        md.posn.line);
+            }
+
+            // Clear the parameter layer's contents (should be only layer left)
+            table.curLocals.peek().clear();
         }
-
-        // Visit & record expected return type so that return statements can be properly checked
-        md.getType().visit(this, table);
-        table.curMethodExpectedRet = md.getType();
-
-        // Set the stillNeedReturn flag appropriately
-        table.stillNeedReturn = !typeEq(table.curMethodExpectedRet, BaseType.void_dummy);
-
-        // Record whether this is a static method
-        table.isStatic = md.isStatic;
-
-        // Visit each statement within the function
-        for (Statement s : md.statementList) {
-            s.visit(this, table);
-        }
-
-        // Make sure a return statement was encountered (if needed)
-        if (table.stillNeedReturn) {
-            error("Type error - no return statement found in non-void method " + md.name,
-                    md.posn.line);
-        }
-
-        // Clear the parameter layer's contents (should be only layer left)
-        table.curLocals.peek().clear();
 
         return null;
     }

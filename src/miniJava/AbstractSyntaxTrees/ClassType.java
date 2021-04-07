@@ -27,7 +27,7 @@ public class ClassType extends TypeDenoter {
             return decl;
         }
         throw new UnsupportedOperationException(
-                "ClassDecl on line " + posn.line + " has not yet been assigned a declaration");
+                "ClassType on line " + posn.line + " has not yet been assigned a declaration");
     }
 
     protected void setDecl(ClassDecl decl) {
