@@ -1,4 +1,4 @@
-package miniJava.AbstractSyntaxTrees;
+package miniJava.ContextualAnalyzer;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -8,6 +8,8 @@ import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
 import miniJava.ErrorReporter;
+import miniJava.AbstractSyntaxTrees.*;
+import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.IdentificationTable, Object> {
@@ -210,7 +212,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // If it is present, link the package's mainMethod field to it
         // If it isn't present, throw an error
         // Note: if there are multiple main methods in the package, this will stop after the first
-        for (Map<String, MemberDecl> map : table.publicMembers.values()) {
+        for (String className: table.publicMembers.keySet()) {
+            Map<String, MemberDecl> map = table.publicMembers.get(className);
             for (MemberDecl uncastDecl : map.values()) {
 
                 if (uncastDecl instanceof MethodDecl) {
@@ -225,7 +228,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                             if (type.eltType instanceof ClassType
                                     && ((ClassType) type.eltType).className.equals("String")) {
                                 // Found valid main method - can now store it & return safely
-                                prog.mainMethod = decl;
+                                prog.mainClass = table.classes.get(className);
                                 return null;
                             }
                         }

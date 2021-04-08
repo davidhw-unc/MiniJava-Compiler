@@ -30,7 +30,7 @@ public class ClassType extends TypeDenoter {
                 "ClassType on line " + posn.line + " has not yet been assigned a declaration");
     }
 
-    protected void setDecl(ClassDecl decl) {
+    public void setDecl(ClassDecl decl) {
         this.decl = decl;
     }
 }

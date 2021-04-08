@@ -24,7 +24,7 @@ public class Identifier extends Terminal implements Typed {
         return decl;
     }
 
-    protected void setDecl(Declaration decl) {
+    public void setDecl(Declaration decl) {
         this.decl = decl;
     }
 

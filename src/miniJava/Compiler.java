@@ -8,7 +8,7 @@ import java.io.InputStream;
 
 import miniJava.AbstractSyntaxTrees.AST;
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
-import miniJava.AbstractSyntaxTrees.ContextualAnalyzer;
+import miniJava.ContextualAnalyzer.ContextualAnalyzer;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 
