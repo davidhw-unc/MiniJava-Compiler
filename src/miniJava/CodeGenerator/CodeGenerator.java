@@ -1,9 +1,58 @@
 package miniJava.CodeGenerator;
 
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+
+import mJAM.Machine;
 import miniJava.AbstractSyntaxTrees.*;
 import miniJava.AbstractSyntaxTrees.Package;
 
 public class CodeGenerator implements Visitor<Object, Object> {
+
+    // ============================================================================
+    // 
+    // Public members
+    // 
+    // ============================================================================
+
+    public static void generateCode(AST ast) {
+        new CodeGenerator(ast);
+    }
+
+    // ============================================================================
+    // 
+    // Private members (let's be smart and do it this way this time)
+    // 
+    // ============================================================================
+
+    private CodeGenerator(AST ast) {
+        if (!(ast instanceof Package)) {
+            throw new IllegalArgumentException("ast must have a Package as its root");
+        }
+
+        ast.visit(this, null);
+    }
+
+    private Map<MethodDecl, Integer> methodAddresses = new HashMap<>();
+    private Deque<PatchNote> patchesToDo = new LinkedList<>();
+
+    private class PatchNote {
+        /**
+         * The address of the instruction that needs to be patched
+         */
+        int addr;
+        /**
+         * The method that is being called
+         */
+        MethodDecl method;
+
+        PatchNote(int addr, MethodDecl method) {
+            this.addr = addr;
+            this.method = method;
+        }
+    }
 
     ///////////////////////////////////////////////////////////////////////////////
     //
@@ -13,6 +62,19 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitPackage(Package prog, Object arg) {
+        // Initialize the code generator
+        Machine.initCodeGen();
+        System.out.println("Beginning code generation...");
+        
+        // TODO Calculate runtime entity descriptors for each Declaration (first pass)
+
+        // TODO Emit code that calls main (record PatchNote!)
+
+        // Record the address of the println method
+        methodAddresses.put(prog.printlnMethod, Machine.nextInstrAddr());
+
+        // TODO Emit code for println
+        
         // TODO Auto-generated method stub
         return null;
     }

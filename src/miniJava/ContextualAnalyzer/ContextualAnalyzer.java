@@ -175,9 +175,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                         new ParameterDeclList(), new StatementList(), null));
         printStreamClass.methodDeclList.get(0).parameterDeclList
                 .add(new ParameterDecl(BaseType.int_dummy, "n", null));
-
         ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
                 null);
+
+        // Link the println method in the Package (needed for code generation)
+        prog.printlnMethod = printStreamClass.methodDeclList.get(0);
 
         // Add all class declarations to the table
         table.classes.put(systemClass.name, systemClass);
@@ -200,7 +202,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
         table.curInInitialPass = false;
 
-        // Perform main pass for each class
+        // Perform main pass
         systemClass.visit(this, table);
         printStreamClass.visit(this, table);
         stringClass.visit(this, table);
@@ -212,8 +214,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // If it is present, link the package's mainMethod field to it
         // If it isn't present, throw an error
         // Note: if there are multiple main methods in the package, this will stop after the first
-        for (String className: table.publicMembers.keySet()) {
-            Map<String, MemberDecl> map = table.publicMembers.get(className);
+        for (Map<String, MemberDecl> map : table.publicMembers.values()) {
             for (MemberDecl uncastDecl : map.values()) {
 
                 if (uncastDecl instanceof MethodDecl) {
@@ -228,7 +229,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                             if (type.eltType instanceof ClassType
                                     && ((ClassType) type.eltType).className.equals("String")) {
                                 // Found valid main method - can now store it & return safely
-                                prog.mainClass = table.classes.get(className);
+                                prog.mainMethod = decl;
                                 return null;
                             }
                         }
