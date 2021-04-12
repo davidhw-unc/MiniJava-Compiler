@@ -144,6 +144,9 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
             // Check the type of each parameter
             for (int i = 0; i < argList.size(); ++i) {
+                // Visit the parameter declaration's type (to make sure it's been visited)
+                methodDecl.parameterDeclList.get(i).getType().visit(this, table);
+                // Check that the types agree
                 if (!typeEq(argList.get(i).getType(),
                         methodDecl.parameterDeclList.get(i).getType())) {
                     error("Type error - the type of parameter " + i
@@ -405,6 +408,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitClassType(ClassType type, IdentificationTable table) {
+        // If this has already been visited, return
+        if (type.getDecl() != null) {
+            return null;
+        }
+
         // Find corresponding class in the table
         ClassDecl decl = table.classes.get(type.className);
 
@@ -574,7 +582,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitCallStmt(CallStmt stmt, IdentificationTable table) {
-        processCall(stmt.methodRef, stmt.argList, stmt.posn, table);
+        processCall(stmt.getMethodRef(), stmt.getArgList(), stmt.posn, table);
         // Note: No need to check the return type against anything,
         // as this is a function being called without its return being used
 
@@ -817,7 +825,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitCallExpr(CallExpr expr, IdentificationTable table) {
         // Process the function call and set expr's type to the return type of the function
-        expr.setType(processCall(expr.methodRef, expr.argList, expr.posn, table));
+        expr.setType(processCall(expr.getMethodRef(), expr.getArgList(), expr.posn, table));
 
         return null;
     }

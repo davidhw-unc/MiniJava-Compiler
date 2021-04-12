@@ -23,11 +23,7 @@ public class ClassType extends TypeDenoter {
     }
 
     public ClassDecl getDecl() {
-        if (decl != null) {
-            return decl;
-        }
-        throw new UnsupportedOperationException(
-                "ClassType on line " + posn.line + " has not yet been assigned a declaration");
+        return decl;
     }
 
     public void setDecl(ClassDecl decl) {
