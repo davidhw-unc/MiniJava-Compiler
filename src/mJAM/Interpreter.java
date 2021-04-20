@@ -692,6 +692,9 @@ public class Interpreter {
         do {
             interpretOneOperation();
         } while (status == running && debuggerStatus == DebuggerStatus.RUNNING);
+        if (status != running) {
+            showStatus();
+        }
     }
 
     static void printHelp() {

@@ -43,7 +43,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         patchesToDo = new ArrayDeque<>();
         curStaticCount = 0;
-        ifOrLoopLayerCount = 0;
+        ifLayerCount = 0;
+        loopLayerCount = 0;
 
         ast.visit(this, null);
     }
@@ -80,20 +81,36 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
     }
 
-    private void enterIfOrLoop() {
-        ++ifOrLoopLayerCount;
+    private void enterIf() {
+        ++ifLayerCount;
     }
 
-    private void exitIfOrLoop() {
-        --ifOrLoopLayerCount;
-        if (ifOrLoopLayerCount < 0) {
+    private void exitIf() {
+        --ifLayerCount;
+        if (ifLayerCount < 0) {
             throw new IllegalStateException(
-                    "called exitIfOrLoop() without prior matching enterIfOrLoop() call");
+                    "called exitIf() without prior matching enterIf() call");
         }
     }
 
-    private boolean inIfOrLoop() {
-        return ifOrLoopLayerCount > 0;
+    private boolean inIf() {
+        return ifLayerCount > 0;
+    }
+
+    private void enterLoop() {
+        ++loopLayerCount;
+    }
+
+    private void exitLoop() {
+        --loopLayerCount;
+        if (loopLayerCount < 0) {
+            throw new IllegalStateException(
+                    "called exitLoop() without prior matching enterLoop() call");
+        }
+    }
+
+    private boolean inLoop() {
+        return loopLayerCount > 0;
     }
 
     // ============================================================================
@@ -104,7 +121,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     private Queue<PatchNote> patchesToDo;
     private int curStaticCount;
-    private int ifOrLoopLayerCount; // Don't read directly, use inIfOrLoop()
+    private int ifLayerCount; // Don't read directly, use inIf()
+    private int loopLayerCount; // Don't read directly, use inLoop()
     private int curMethodArgCount;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -132,19 +150,23 @@ public class CodeGenerator implements Visitor<Object, Object> {
             throw new IllegalStateException(
                     "Attempting to write entry point, but not at start of code store!");
         }
-        // BEFORE ANYTHING ELSE, make space below the stack for all the static fields
-        Machine.emit(Op.PUSH, curStaticCount);
+
+        // BEFORE ANYTHING ELSE, make space below the stack for all the static fields (if present)
+        if (curStaticCount > 0) {
+            Machine.emit(Op.PUSH, curStaticCount);
+        }
+
         // Create empty args array
         Machine.emit(Op.LOADL, 0);
         Machine.emit(Prim.newarr);
         // Record patch
         patchesToDo.add(new PatchNote(Machine.nextInstrAddr(), prog.mainMethod));
         // Call main
-        Machine.emit(Op.CALL, -1);
+        Machine.emit(Op.CALL, Reg.CB, -1);
         // Halt execution
         Machine.emit(Op.HALT, 0, Reg.ZR, 0);
 
-        // Create the println method
+        // Create the println method's code
         // Record the method's code address
         prog.printlnMethod.data = Machine.nextInstrAddr();
         // Load the number being printed
@@ -250,11 +272,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Add empty return to end of void methods if not already present
         if (md.getType().typeKind == TypeKind.VOID
-                && md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt) {
+                && !(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt)) {
             Machine.emit(Op.RETURN, 0, Reg.ZR, curMethodArgCount);
         }
 
-        // TODO go back to ContextualAnalyzer and think about return presence checking again
+        // TODO go back to ContextualAnalyzer and rethink return presence checking
 
         return null;
     }
@@ -329,8 +351,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
     public Object visitVarDeclStmt(VarDeclStmt vds, Object arg) {
         int curLocalOffset = (int) arg;
 
+        // Record this variable's offset from LB in its data field
+        vds.varDecl.data = curLocalOffset;
+
         // Visit initExp, record its value in the varDecl if known, and store it on top of the stack
-        Integer val = forcePushResult((Integer) vds.visit(this, true), true);
+        Integer val = forcePushResult((Integer) vds.initExp.visit(this, true), true);
         vds.varDecl.setValue(val);
 
         /*
@@ -355,7 +380,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Put the new value on the stack (even if it's known at compile time, we don't have a way
         // to store it without first putting it on the stack)
-        Integer newVal = forcePushResult((Integer) as.expr.visit(this, true), true);
+        Integer newVal = forcePushResult((Integer) as.valExpr.visit(this, true), true);
 
         // If the register is null, this is a member field of another object, and the object's addr
         // and the field's offset were already put on the stack
@@ -370,7 +395,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             // If this is reassigning a VarDecl & we aren't in a loop or an if statement, update the
             // VarDecl's value field
             if (result.reg == Reg.LB && result.offset > 0) {
-                ((VarDecl) as.ref.getId().getDecl()).setValue(inIfOrLoop() ? null : newVal);
+                ((VarDecl) as.ref.getId().getDecl()).setValue(inIf() || inLoop() ? null : newVal);
             }
         }
 
@@ -429,7 +454,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
     @Override
     public Object visitIfStmt(IfStmt is, Object arg) {
         // Mark that we are entering an if statement
-        enterIfOrLoop();
+        enterIf();
 
         // Visit the conditional expression- if it's not known at compile time, the value will be
         // put on the stack
@@ -475,15 +500,13 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
 
         // Mark that we are leaving an if statement
-        exitIfOrLoop();
+        exitIf();
 
         return arg;
     }
 
     @Override
     public Object visitWhileStmt(WhileStmt ws, Object arg) {
-        // Mark that we are entering a while loop
-        enterIfOrLoop();
 
         // Evaluate the conditional once to start
         Integer initVal = (Integer) ws.condExpr.visit(this, true);
@@ -491,12 +514,17 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // If the conditional was known to be false, we're done, so only continue if it is unknown
         // or known to be true
         if (initVal == null || initVal == Machine.trueRep) {
+            // TODO if conditional is initially known to be true, skip first eval of the conditional
+
             // Force the conditional's value to be on the stack
             forcePushResult(initVal, true);
 
             // Emit JUMPIF to skip body if initially false -- this will need patching
             int initSkipAddr = Machine.nextInstrAddr();
             Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+
+            // Mark that we are entering the repeated portion of a while loop
+            enterLoop();
 
             // Record the current code addr and emit code for the body
             int bodyStartAddr = Machine.nextInstrAddr();
@@ -511,7 +539,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
 
         // Mark that we are leaving a while loop
-        exitIfOrLoop();
+        exitLoop();
 
         return arg;
     }
@@ -541,7 +569,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Visit the operand
         // If the value is known at compile time, it will be returned
         // Otherwise, instructions will be emitted that leave the value on top of the stack
-        Integer operandVal = (Integer) ue.operand.visit(this, arg);
+        Integer operandVal = (Integer) ue.operandExpr.visit(this, arg);
 
         // If the operand's value is known, we can find the value of this expr
         if (operandVal != null) {
@@ -552,17 +580,21 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
 
         // If not known, emit instructions for runtime calculation
-        ue.operator.visit(this, null);
+        if ((Boolean) arg) ue.operator.visit(this, null);
 
         return null;
+    }
+
+    private Integer boolToInt(boolean b) {
+        return b ? Machine.trueRep : Machine.falseRep;
     }
 
     @Override
     public Object visitBinaryExpr(BinaryExpr be, Object arg) {
         // Visit left & right, but just to get their known values if they can be evaluated at
         // compile time.
-        Integer left = (Integer) be.left.visit(this, false); // Not emitting!
-        Integer right = (Integer) be.right.visit(this, false); // Not emitting!
+        Integer left = (Integer) be.leftExpr.visit(this, false); // Not emitting!
+        Integer right = (Integer) be.rightExpr.visit(this, false); // Not emitting!
 
         if (left != null && right != null) {
             // If both operands have known values, we can calculate this expression's result and
@@ -571,17 +603,17 @@ public class CodeGenerator implements Visitor<Object, Object> {
             // Calculate the value w/o visiting the operator (visiting is for unknown operands) 
             switch (be.operator.kind) {
                 case OR:
-                    return left == Machine.trueRep || right == Machine.trueRep;
+                    return boolToInt(left == Machine.trueRep || right == Machine.trueRep);
                 case AND:
-                    return left == Machine.trueRep && right == Machine.trueRep;
+                    return boolToInt(left == Machine.trueRep && right == Machine.trueRep);
                 case LESS_EQUAL:
-                    return left <= right;
+                    return boolToInt(left <= right);
                 case LESS_THAN:
-                    return left < right;
+                    return boolToInt(left < right);
                 case GREATER_THAN:
-                    return left > right;
+                    return boolToInt(left > right);
                 case GREATER_EQUAL:
-                    return left >= right;
+                    return boolToInt(left >= right);
                 case PLUS:
                     return left + right;
                 case MINUS:
@@ -591,9 +623,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 case DIVIDE:
                     return left / right;
                 case EQUAL_TO:
-                    return left == right;
+                    return boolToInt(left == right);
                 case NOT_EQUAL:
-                    return left != right;
+                    return boolToInt(left != right);
                 default:
                     throw new IllegalStateException("It shouldn't be possible to reach this line");
             }
@@ -605,7 +637,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // operators it doesn't matter if one or both are unknown)
 
         // Visit the left operand
-        be.left.visit(this, arg);
+        be.leftExpr.visit(this, arg);
 
         // Handle the short-circuiting || operator
         if (be.operator.kind == OR) {
@@ -639,7 +671,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
                 // Visit right so its code can be generated
                 // No need to force, since we already know right isn't known at compile time
-                be.right.visit(this, arg);
+                be.rightExpr.visit(this, arg);
 
                 // If right wasn't visited, we'll need to push a true onto the stack. If right WAS
                 // visited, we need to skip that instruction.
@@ -660,7 +692,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 // running the first if statement in this method
 
                 // If left is known to be false, we can visit right and just use right's value
-                return be.right.visit(this, arg);
+                return be.rightExpr.visit(this, arg);
             }
         }
 
@@ -696,7 +728,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
                 // Visit right so its code can be generated
                 // No need to force, since we already know right isn't known at compile time
-                be.right.visit(this, arg);
+                be.rightExpr.visit(this, arg);
 
                 // If right wasn't visited, we'll need to push a false onto the stack. If right WAS
                 // visited, we need to skip that instruction.
@@ -717,7 +749,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 // running the first if statement in this method
 
                 // If left is known to be true, we can visit right and just use right's value
-                return be.right.visit(this, arg);
+                return be.rightExpr.visit(this, arg);
             }
         }
 
@@ -729,7 +761,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         forcePushResult(left, arg);
 
         // Visit right and force it onto the stack
-        forcePushResult((Integer) be.right.visit(this, arg), arg);
+        forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
 
         // Visit operator to emit the calculation instruction
         if ((Boolean) arg) be.operator.visit(this, null);
@@ -739,16 +771,18 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitRefExpr(RefExpr re, Object arg) {
+        // Note: If we're in a loop, no locals are considered known
+
         // If this RefExpr is known (an IdRef that points to a VarDecl with a known value), we can
         // just pass on that known value
         Reference ref = re.ref;
-        if (ref instanceof IdRef && ref.getId().getDecl() instanceof VarDecl
+        if (!inLoop() && ref instanceof IdRef && ref.getId().getDecl() instanceof VarDecl
                 && ((VarDecl) ref.getId().getDecl()).getValue() != null) {
             return ((VarDecl) re.ref.getId().getDecl()).getValue();
         }
 
         // Otherwise, visit the reference to emit code that will put its value on the stack
-        if ((Boolean) arg) re.ref.visit(this, true); // This true is to put the value on the stack
+        if ((Boolean) arg) re.ref.visit(this, RefVisitMode.READ);
 
         // Note: array length members are handled in the QualRef visit method
 
@@ -758,13 +792,13 @@ public class CodeGenerator implements Visitor<Object, Object> {
     @Override
     public Object visitIxExpr(IxExpr ie, Object arg) {
         // Get the array's address on the stack
-        forcePushResult((Integer) ie.ref.visit(this, arg), arg);
+        if ((Boolean) arg) ie.ref.visit(this, RefVisitMode.READ);
 
         // Get the array index expression on the stack
         forcePushResult((Integer) ie.ixExpr.visit(this, arg), arg);
 
         // Call the arrayref primitive
-        Machine.emit(Prim.arrayref);
+        if ((Boolean) arg) Machine.emit(Prim.arrayref);
 
         return null;
     }
@@ -801,8 +835,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
     @Override
     public Object visitNewArrayExpr(NewArrayExpr nae, Object arg) {
         // Force the number of elements in the array to be recorded on the stack
-        Integer n = (Integer) nae.sizeExpr.visit(this, null);
-        forcePushResult(n, arg);
+        forcePushResult((Integer) nae.sizeExpr.visit(this, arg), arg);
 
         // Emit call to the newarr primitive, which will leave the new array's addr on the stack
         if ((Boolean) arg) Machine.emit(Prim.newarr);
@@ -829,8 +862,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
          * 
          * READ will result in the field or variable having its value put on the stack
          * 
-         * WRITE will put the necessary items on the stack to write to the field or variable,
-         * or will return them if they don't need to be on the stack
+         * WRITE will return the neccessary items for writing to the field or variable, or will
+         * put them on the stack if that's where they're needed
          *      Static field:
          *          Return SB, offset
          *      Non-static field that's a member of this:
@@ -923,7 +956,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
     }
 
     @Override
-    public Object visitQRef(QualRef qr, Object arg) {
+    public Object visitQualRef(QualRef qr, Object arg) {
         // Note: QualRef will only ever point to MemberDecls (can be an array's length pseudomember)
 
         Declaration decl = qr.getId().getDecl();
@@ -934,7 +967,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             }
 
             // Visit the preceding reference to emit code that will put its value on the stack
-            forcePushResult((Integer) qr.prevRef.visit(this, null), true);
+            qr.prevRef.visit(this, RefVisitMode.READ);
 
             // Call the arraylen primitive
             Machine.emit(Prim.arraylen);
@@ -968,8 +1001,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
                         throw new IllegalStateException("Invalid arg when visiting QualRef");
                     }
                 } else {
-                    // Visit prevRef to generate code that loads the address of the instance
-                    qr.prevRef.visit(this, null);
+                    // If we're accessing a member of another object, we'll need to use the fieldref
+                    // (or fieldupd, but not right here) primitives
+
+                    // Visit prevRef to generate code that pushes the instance's addr onto the stack
+                    qr.prevRef.visit(this, RefVisitMode.READ);
 
                     // Load the field offset onto the stack
                     Machine.emit(Op.LOADL, field.data);
@@ -995,7 +1031,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
             if (!method.isStatic) {
                 // If the method isn't static, we need to put the instance's address on the stack
-                forcePushResult((Integer) qr.prevRef.visit(this, null), true);
+                qr.prevRef.visit(this, RefVisitMode.READ);
             }
 
             // Note: we will not put the method's address on the stack here. emitCall can retrieve
@@ -1102,7 +1138,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
     @Override
     public Object visitBooleanLiteral(BooleanLiteral bl, Object arg) {
         // Return Machine.trueRep for "true" and Machine.falseRep for "false"
-        return bl.spelling.equals("true") ? Machine.trueRep : Machine.falseRep;
+        return boolToInt(bl.spelling.equals("true"));
     }
 
 }

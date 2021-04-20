@@ -9,14 +9,14 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class BinaryExpr extends Expression {
     public Operator operator;
-    public Expression left;
-    public Expression right;
+    public Expression leftExpr;
+    public Expression rightExpr;
 
     public BinaryExpr(Operator o, Expression e1, Expression e2, SourcePosition posn) {
         super(posn);
         operator = o;
-        left = e1;
-        right = e2;
+        leftExpr = e1;
+        rightExpr = e2;
     }
 
     @Override

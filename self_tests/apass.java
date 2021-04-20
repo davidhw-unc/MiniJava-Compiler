@@ -1,12 +1,22 @@
 class Test1 {
     public static void main(String[] args) {
-        int i = 0;
         Helper help = new Helper();
+        help.initialize(5);
         
-        while (i < 23) {
+        int min = -20;
+        int max = 20;
+
+        int i = min;
+        while (i <= max) {
             help.input(i);
             System.out.println(i);
             System.out.println(help.getValue());
+            i = i + 1;
+        }
+        
+        i = min;
+        while (i <= max) {
+            System.out.println(i);
             System.out.println(Test1.fibonacci(i));
             i = i + 1;
         }
@@ -63,6 +73,7 @@ class Helper {
             i=1+i;
         }
         curCapacity = 2*curCapacity;
+        this.cache = newCache;
     }
     
     public void input(int n) {

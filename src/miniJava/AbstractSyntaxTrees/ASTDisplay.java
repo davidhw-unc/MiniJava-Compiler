@@ -215,7 +215,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitAssignStmt(AssignStmt stmt, String arg) {
         show(arg, stmt);
         stmt.ref.visit(this, indent(arg));
-        stmt.expr.visit(this, indent(arg));
+        stmt.valExpr.visit(this, indent(arg));
         return null;
     }
 
@@ -278,7 +278,7 @@ public class ASTDisplay implements Visitor<String, Object> {
             expr.getType().visit(this, indent(arg));
         }
         expr.operator.visit(this, indent(arg));
-        expr.operand.visit(this, indent(indent(arg)));
+        expr.operandExpr.visit(this, indent(indent(arg)));
         return null;
     }
 
@@ -289,8 +289,8 @@ public class ASTDisplay implements Visitor<String, Object> {
             expr.getType().visit(this, indent(arg));
         }
         expr.operator.visit(this, indent(arg));
-        expr.left.visit(this, indent(indent(arg)));
-        expr.right.visit(this, indent(indent(arg)));
+        expr.leftExpr.visit(this, indent(indent(arg)));
+        expr.rightExpr.visit(this, indent(indent(arg)));
         return null;
     }
 
@@ -397,7 +397,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     }
 
     @Override
-    public Object visitQRef(QualRef ref, String arg) {
+    public Object visitQualRef(QualRef ref, String arg) {
         show(arg, ref);
         if (showTypes) {
             ref.getType().visit(this, indent(arg));

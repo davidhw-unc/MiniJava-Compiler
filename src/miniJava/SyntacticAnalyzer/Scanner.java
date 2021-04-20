@@ -193,7 +193,7 @@ public class Scanner implements Iterable<Token> {
                 case '!':
                     takeIt(curContents);
                     if (curChar == '=') {
-                        kind = Kind.EQUAL_TO;
+                        kind = Kind.NOT_EQUAL;
                         takeIt(curContents);
                     } else {
                         kind = Kind.NOT;

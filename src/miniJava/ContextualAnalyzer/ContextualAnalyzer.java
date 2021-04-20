@@ -174,12 +174,16 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         ClassDecl printStreamClass = new ClassDecl("_PrintStream", new FieldDeclList(),
                 new MethodDeclList(), null);
         printStreamClass.methodDeclList.add(
-                new MethodDecl(new FieldDecl(false, false, BaseType.void_dummy, "println", null),
+                new MethodDecl(new FieldDecl(false, true, BaseType.void_dummy, "println", null),
                         new ParameterDeclList(), new StatementList(), null));
         printStreamClass.methodDeclList.get(0).parameterDeclList
                 .add(new ParameterDecl(BaseType.int_dummy, "n", null));
         ClassDecl stringClass = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(),
                 null);
+
+        // Note: I've marked println() as a static method, because in our current implementation it
+        // doesn't access System.out in any way (which is really just a dummy _PrintStream object
+        // anyway), so this way I avoid having to create that object at all
 
         // Link the println method in the Package (needed for code generation)
         prog.printlnMethod = printStreamClass.methodDeclList.get(0);
@@ -500,7 +504,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitAssignStmt(AssignStmt stmt, IdentificationTable table) {
         // Visit the Expression
-        stmt.expr.visit(this, table);
+        stmt.valExpr.visit(this, table);
 
         // Visit the Reference
         stmt.ref.visit(this, table);
@@ -527,7 +531,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Note: Don't need to check static status, it gets checked when visiting the Reference
 
         // Check that the types agree
-        if (!typeEq(stmt.ref.getType(), stmt.expr.getType())) {
+        if (!typeEq(stmt.ref.getType(), stmt.valExpr.getType())) {
             error("Type error - incompatible types in variable assignment", stmt.posn.line);
         }
 
@@ -705,10 +709,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 table);
 
         // Visit the operand expression
-        expr.operand.visit(this, table);
+        expr.operandExpr.visit(this, table);
 
         // Validate the operand type and set the UnaryExpression's type appropriately
-        TypeDenoter exprType = func.apply(expr.operand.getType());
+        TypeDenoter exprType = func.apply(expr.operandExpr.getType());
         if (exprType == null) {
             error("Type error - invalid operand type for unary operator " + expr.operator.spelling,
                     expr.operator.posn.line);
@@ -727,11 +731,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 table);
 
         // Visit the operand expressions
-        expr.left.visit(this, table);
-        expr.right.visit(this, table);
+        expr.leftExpr.visit(this, table);
+        expr.rightExpr.visit(this, table);
 
         // Validate the operand types and set the UnaryExpression's type appropriately
-        TypeDenoter exprType = func.apply(expr.left.getType(), expr.right.getType());
+        TypeDenoter exprType = func.apply(expr.leftExpr.getType(), expr.rightExpr.getType());
         if (exprType == null) {
             error("Invalid operand type for binary operator " + expr.operator.spelling,
                     expr.operator.posn.line);
@@ -971,7 +975,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @SuppressWarnings("null")
     @Override
-    public Object visitQRef(QualRef ref, IdentificationTable table) {
+    public Object visitQualRef(QualRef ref, IdentificationTable table) {
         // Visit the previous reference
         ref.prevRef.visit(this, table);
 
