@@ -10,13 +10,13 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 public class IxAssignStmt extends Statement {
     public Reference ref;
     public Expression ixExpr;
-    public Expression exp;
+    public Expression valExp;
 
     public IxAssignStmt(Reference r, Expression i, Expression e, SourcePosition posn) {
         super(posn);
         ref = r;
         ixExpr = i;
-        exp = e;
+        valExp = e;
     }
 
     @Override

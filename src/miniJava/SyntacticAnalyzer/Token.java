@@ -29,12 +29,4 @@ public class Token {
     public String toString() {
         return String.format("%-13s %8s %s", kind.toString(), posn, spelling);
     }
-
-    public long getLine() {
-        return posn.line;
-    }
-
-    public int getStartColumn() {
-        return posn.startColumn;
-    }
 }

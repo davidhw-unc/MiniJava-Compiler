@@ -7,9 +7,9 @@ package miniJava.AbstractSyntaxTrees;
 
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
-public class CallExpr extends Expression {
-    public Reference methodRef;
-    public ExprList argList;
+public class CallExpr extends Expression implements MethodCaller {
+    private Reference methodRef;
+    private ExprList argList;
 
     public CallExpr(Reference f, ExprList el, SourcePosition posn) {
         super(posn);
@@ -18,7 +18,25 @@ public class CallExpr extends Expression {
     }
 
     @Override
+    public Reference getMethodRef() {
+        return methodRef;
+    }
+
+    @Override
+    public ExprList getArgList() {
+        return argList;
+    }
+
+    @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitCallExpr(this, o);
     }
+
+    // TODO clean up
+    /*
+    @Override
+    public boolean isKnown() {
+        return false;
+    }
+    */
 }

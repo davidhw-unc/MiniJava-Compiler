@@ -21,7 +21,7 @@ public class Parser {
     }
 
     private static class SyntaxException extends Exception {
-        private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = -5685400912669788293L;
     }
 
     public AST parse() {

@@ -8,17 +8,17 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class AssignStmt extends Statement {
+    public Reference ref;
+    public Expression expr;
+
     public AssignStmt(Reference r, Expression e, SourcePosition posn) {
         super(posn);
         ref = r;
-        val = e;
+        expr = e;
     }
 
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitAssignStmt(this, o);
     }
-
-    public Reference ref;
-    public Expression val;
 }

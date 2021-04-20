@@ -21,4 +21,12 @@ public class UnaryExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitUnaryExpr(this, o);
     }
+
+    // TODO clean up
+    /*
+    @Override
+    public boolean isKnown() {
+        return operand.isKnown();
+    }
+    */
 }

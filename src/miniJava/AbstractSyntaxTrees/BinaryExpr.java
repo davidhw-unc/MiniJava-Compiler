@@ -23,4 +23,13 @@ public class BinaryExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitBinaryExpr(this, o);
     }
+
+    // TODO clean up
+    /*
+    @Override
+    public boolean isKnown() {
+        // If both operand values are known, this expression is always known
+        return left.isKnown() && right.isKnown();
+    }
+    */
 }

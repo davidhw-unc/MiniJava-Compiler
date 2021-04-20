@@ -11,7 +11,6 @@ public class ThisRef extends BaseRef {
     public ThisRef(Token token) {
         super(token.posn);
         super.setId(new Identifier(token));
-        // super.setId(new Identifier(new Token(Token.Kind.THIS, "this", posn.line, posn.startColumn)));
     }
 
     @Override

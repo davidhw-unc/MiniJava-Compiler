@@ -215,7 +215,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     public Object visitAssignStmt(AssignStmt stmt, String arg) {
         show(arg, stmt);
         stmt.ref.visit(this, indent(arg));
-        stmt.val.visit(this, indent(arg));
+        stmt.expr.visit(this, indent(arg));
         return null;
     }
 
@@ -224,15 +224,15 @@ public class ASTDisplay implements Visitor<String, Object> {
         show(arg, stmt);
         stmt.ref.visit(this, indent(arg));
         stmt.ixExpr.visit(this, indent(arg));
-        stmt.exp.visit(this, indent(arg));
+        stmt.valExp.visit(this, indent(arg));
         return null;
     }
 
     @Override
     public Object visitCallStmt(CallStmt stmt, String arg) {
         show(arg, stmt);
-        stmt.methodRef.visit(this, indent(arg));
-        ExprList al = stmt.argList;
+        stmt.getMethodRef().visit(this, indent(arg));
+        ExprList al = stmt.getArgList();
         show(arg, "  ExprList [" + al.size() + "]");
         String pfx = arg + "  . ";
         for (Expression e : al) {
@@ -251,7 +251,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitIfStmt(IfStmt stmt, String arg) {
         show(arg, stmt);
-        stmt.cond.visit(this, indent(arg));
+        stmt.condExpr.visit(this, indent(arg));
         stmt.thenStmt.visit(this, indent(arg));
         if (stmt.elseStmt != null) stmt.elseStmt.visit(this, indent(arg));
         return null;
@@ -260,7 +260,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     @Override
     public Object visitWhileStmt(WhileStmt stmt, String arg) {
         show(arg, stmt);
-        stmt.cond.visit(this, indent(arg));
+        stmt.condExpr.visit(this, indent(arg));
         stmt.body.visit(this, indent(arg));
         return null;
     }
@@ -321,8 +321,8 @@ public class ASTDisplay implements Visitor<String, Object> {
         if (showTypes) {
             expr.getType().visit(this, indent(arg));
         }
-        expr.methodRef.visit(this, indent(arg));
-        ExprList al = expr.argList;
+        expr.getMethodRef().visit(this, indent(arg));
+        ExprList al = expr.getArgList();
         show(arg, "  ExprList + [" + al.size() + "]");
         String pfx = arg + "  . ";
         for (Expression e : al) {

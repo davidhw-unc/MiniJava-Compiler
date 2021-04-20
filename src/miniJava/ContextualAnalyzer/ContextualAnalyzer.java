@@ -13,8 +13,8 @@ import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.IdentificationTable, Object> {
-    /*------------------------------
-     * Static members 
+    /*----------------------------*
+     * Static members             *
      *----------------------------*/
 
     public static void runAnalysis(AST ast, ErrorReporter err) {
@@ -48,8 +48,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         private static final long serialVersionUID = 1L;
     }
 
-    /*------------------------------
-     * Non-static members 
+    /*----------------------------*
+     * Non-static members         *
      *----------------------------*/
 
     private ErrorReporter err;
@@ -500,7 +500,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitAssignStmt(AssignStmt stmt, IdentificationTable table) {
         // Visit the Expression
-        stmt.val.visit(this, table);
+        stmt.expr.visit(this, table);
 
         // Visit the Reference
         stmt.ref.visit(this, table);
@@ -527,7 +527,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Note: Don't need to check static status, it gets checked when visiting the Reference
 
         // Check that the types agree
-        if (!typeEq(stmt.ref.getType(), stmt.val.getType())) {
+        if (!typeEq(stmt.ref.getType(), stmt.expr.getType())) {
             error("Type error - incompatible types in variable assignment", stmt.posn.line);
         }
 
@@ -544,7 +544,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         stmt.ixExpr.visit(this, table);
 
         // Visit the value Expression
-        stmt.exp.visit(this, table);
+        stmt.valExp.visit(this, table);
 
         // Make sure this reference corresponds to an ArrayDecl
         if (stmt.ref instanceof ThisRef) {
@@ -572,7 +572,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // Make sure the array's element type and the value's type agree
-        if (!typeEq(((ArrayType) stmt.ref.getType()).eltType, stmt.exp.getType())) {
+        if (!typeEq(((ArrayType) stmt.ref.getType()).eltType, stmt.valExp.getType())) {
             error("Type error - incompatible types in array element assignment", stmt.posn.line);
         }
 
@@ -625,12 +625,12 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitIfStmt(IfStmt stmt, IdentificationTable table) {
         // Visit conditional expression
-        stmt.cond.visit(this, table);
+        stmt.condExpr.visit(this, table);
 
         // Make sure the conditional expression's type is boolean
-        if (!typeEq(stmt.cond.getType(), BaseType.bool_dummy)) {
+        if (!typeEq(stmt.condExpr.getType(), BaseType.bool_dummy)) {
             error("Type error - conditional expression in if statement must have boolean type",
-                    stmt.cond.posn.line);
+                    stmt.condExpr.posn.line);
         }
 
         // Visit thenStatement
@@ -664,12 +664,12 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitWhileStmt(WhileStmt stmt, IdentificationTable table) {
         // Visit conditional expression
-        stmt.cond.visit(this, table);
+        stmt.condExpr.visit(this, table);
 
         // Make sure the conditional expression's type is boolean
-        if (!typeEq(stmt.cond.getType(), BaseType.bool_dummy)) {
+        if (!typeEq(stmt.condExpr.getType(), BaseType.bool_dummy)) {
             error("Type error - conditional expression in while statment must have boolean type",
-                    stmt.cond.posn.line);
+                    stmt.condExpr.posn.line);
         }
 
         // Visit body
@@ -966,8 +966,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         return null;
     }
 
-    private FieldDecl arrayLengthField = new FieldDecl(false, false, BaseType.int_dummy, "length",
-            null);
+    public static final FieldDecl arrayLengthField = new FieldDecl(false, false, BaseType.int_dummy,
+            "length", null);
 
     @SuppressWarnings("null")
     @Override
