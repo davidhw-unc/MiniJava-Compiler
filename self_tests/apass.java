@@ -4,22 +4,25 @@ class Test1 {
         help.initialize(5);
         
         int min = -20;
-        int max = 20;
+        int max = -min;
 
         int i = min;
         while (i <= max) {
             help.input(i);
             System.out.println(i);
             System.out.println(help.getValue());
+            System.out.println(Test1.fibonacci(i));
             i = i + 1;
         }
         
+        /*
         i = min;
         while (i <= max) {
             System.out.println(i);
             System.out.println(Test1.fibonacci(i));
             i = i + 1;
         }
+        */
         
         // Random stuff for testing edge cases
         
@@ -77,10 +80,13 @@ class Helper {
     }
     
     public void input(int n) {
-        if (n < 0)
-            this.lastValue = 0; 
-        
-        lastValue = calculate(n);
+        if (n >= 0)
+            lastValue = calculate(n);
+        else if (n % 2 == 0) {
+            lastValue = -calculate(-n);
+        } else {
+            lastValue = calculate(-n);
+        }
     }
     
     public int getValue() {

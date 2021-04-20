@@ -144,17 +144,14 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // After this, curStaticOffset will hold the number of static members in the whole program,
         // allowing us to push that many entries onto the stack before calling main
 
-        // Emit code that calls main (record a PatchNote!)
-        if (Machine.nextInstrAddr() != Machine.CB) {
-            // TODO remove once verified to be fine
-            throw new IllegalStateException(
-                    "Attempting to write entry point, but not at start of code store!");
-        }
+        // Before compiling any of the user's code, we need to emit code that calls main
+        // This will require recording our first PatchNote
 
-        // BEFORE ANYTHING ELSE, make space below the stack for all the static fields (if present)
+        // Make space below the stack for all the static fields (if any are present)
         if (curStaticCount > 0) {
             Machine.emit(Op.PUSH, curStaticCount);
         }
+        // Note: these are all initialized to 0 since that's how real Java initializes array elements
 
         // Create empty args array
         Machine.emit(Op.LOADL, 0);
@@ -184,7 +181,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Perform necessary patching
         for (PatchNote patch : patchesToDo) {
             if (patch.decl.data == Integer.MIN_VALUE) {
-                // TODO remove once verified working
                 throw new IllegalStateException("Method declaration never had its data set");
             }
             Machine.patch(patch.addr, patch.decl.data);
@@ -507,21 +503,23 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitWhileStmt(WhileStmt ws, Object arg) {
-
         // Evaluate the conditional once to start
         Integer initVal = (Integer) ws.condExpr.visit(this, true);
 
         // If the conditional was known to be false, we're done, so only continue if it is unknown
         // or known to be true
         if (initVal == null || initVal == Machine.trueRep) {
-            // TODO if conditional is initially known to be true, skip first eval of the conditional
+            int initSkipAddr = -1;
 
-            // Force the conditional's value to be on the stack
-            forcePushResult(initVal, true);
+            // If condVal is initially known to be true, skip first eval of the conditional
+            if (initVal == null || initVal != Machine.trueRep) {
+                // Force the conditional's value to be on the stack
+                forcePushResult(initVal, true);
 
-            // Emit JUMPIF to skip body if initially false -- this will need patching
-            int initSkipAddr = Machine.nextInstrAddr();
-            Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+                // Emit JUMPIF to skip body if initially false -- this will need patching
+                initSkipAddr = Machine.nextInstrAddr();
+                Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+            }
 
             // Mark that we are entering the repeated portion of a while loop
             enterLoop();
@@ -534,8 +532,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
             forcePushResult((Integer) ws.condExpr.visit(this, true), true);
             Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
 
-            // Patch the "initial false" skip
-            Machine.patch(initSkipAddr, Machine.nextInstrAddr());
+            // Patch the "initial false" skip if present
+            if (initSkipAddr != -1) {
+                Machine.patch(initSkipAddr, Machine.nextInstrAddr());
+            }
         }
 
         // Mark that we are leaving a while loop
