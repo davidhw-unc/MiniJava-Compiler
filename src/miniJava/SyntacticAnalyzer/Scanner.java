@@ -161,6 +161,7 @@ public class Scanner implements Iterable<Token> {
                 case '*':   kind = Kind.MULTIPLY;     takeIt(curContents);    break;
                 case ',':   kind = Kind.COMMA;        takeIt(curContents);    break;
                 case '.':   kind = Kind.DOT;          takeIt(curContents);    break;
+                case '%':   kind = Kind.MODULUS;      takeIt(curContents);    break;
                 // @formatter:on
 
                 case '<':

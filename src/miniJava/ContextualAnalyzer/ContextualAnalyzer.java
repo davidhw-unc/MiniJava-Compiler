@@ -1120,6 +1120,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             case PLUS:
             case MULTIPLY:
             case DIVIDE:
+            case MODULUS:
                 // Both operands must be of type int
                 // Produces an int
                 return (BinaryOperator<TypeDenoter>) (a,
