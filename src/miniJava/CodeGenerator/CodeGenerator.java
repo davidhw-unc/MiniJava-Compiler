@@ -621,7 +621,22 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 case MULTIPLY:
                     return left * right;
                 case DIVIDE:
-                    return left / right;
+                    if (right == 0) {
+                        // If right is 0, leave calculation (and error) to runtime
+
+                        // Force left onto the stack
+                        forcePushResult(left, arg);
+
+                        // Visit right and force it onto the stack
+                        forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
+
+                        // Visit operator to emit the calculation instruction
+                        if ((Boolean) arg) be.operator.visit(this, null);
+
+                        return null;
+                    } else {
+                        return left / right;
+                    }
                 case EQUAL_TO:
                     return boolToInt(left == right);
                 case NOT_EQUAL:
