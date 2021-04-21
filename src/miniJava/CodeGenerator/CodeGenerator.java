@@ -690,7 +690,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
                 // If right wasn't visited, we'll need to push a true onto the stack. If right WAS
                 // visited, we need to skip that instruction.
-                if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CP, 2);
+                if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
                 if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
                 if ((Boolean) arg) Machine.emit(Op.LOADL, Machine.trueRep);
 
@@ -747,7 +747,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
                 // If right wasn't visited, we'll need to push a false onto the stack. If right WAS
                 // visited, we need to skip that instruction.
-                if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CP, 2);
+                if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
                 if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
                 if ((Boolean) arg) Machine.emit(Op.LOADL, Machine.falseRep);
 
