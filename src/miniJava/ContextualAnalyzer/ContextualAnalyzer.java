@@ -683,7 +683,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                     + " conditional statement", stmt.body.posn.line);
         }
 
-        // TODO revisit
         // Note: Java *allows* a method which will never return to not have any return statement,
         // even if the method indicates a non-void return type.
         // However, it's not possible to verify at compile time that a method will never return,
