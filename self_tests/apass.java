@@ -82,11 +82,11 @@ class Helper {
     public void input(int n) {
         if (n >= 0)
             lastValue = calculate(n);
-        else if (n % 2 == 0) {
-            lastValue = -calculate(-n);
-        } else {
-            lastValue = calculate(-n);
-        }
+//        else if (n % 2 == 0) {
+//            lastValue = -calculate(-n);
+//        } else {
+//            lastValue = calculate(-n);
+//        }
     }
     
     public int getValue() {

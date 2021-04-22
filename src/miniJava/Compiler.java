@@ -17,11 +17,46 @@ import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 
 public class Compiler {
-    public static void main(String[] args) {
-        System.exit(runAllOnFile(args[0], false, true));
+    public enum RunMode {
+        JUST_COMPILE, AUTO_RUN, AUTO_DEBUG
     }
 
-    public static int runAllOnFile(String path, boolean displayTree, boolean autoRunAndDebug) {
+    public static void main(String[] args) {
+        RunMode mode;
+        String path;
+
+        switch (args.length) {
+            case 0:
+                throw new IllegalArgumentException("No file path to compile provided");
+            case 1:
+                mode = RunMode.JUST_COMPILE;
+                path = args[0];
+                break;
+            default:
+                if (args[0].equals("-r") || args[0].equals("--run")) {
+                    mode = RunMode.AUTO_RUN;
+                    path = args[1];
+                } else if (args[0].equals("-d") || args[0].equals("--debug")) {
+                    mode = RunMode.AUTO_DEBUG;
+                    path = args[1];
+                } else {
+                    if (args[1].equals("-r") || args[1].equals("--run")) {
+                        mode = RunMode.AUTO_RUN;
+                        path = args[0];
+                    } else if (args[1].equals("-d") || args[1].equals("--debug")) {
+                        mode = RunMode.AUTO_DEBUG;
+                        path = args[0];
+                    } else {
+                        throw new IllegalArgumentException("-r/--run and -d/--debug are the only "
+                                + "accepted flags, and they cannot be passed together");
+                    }
+                }
+        }
+
+        System.exit(runAllOnFile(path, false, mode));
+    }
+
+    public static int runAllOnFile(String path, boolean displayTree, RunMode autoRunAndDebug) {
         ASTDisplay.showPosition = false;
         ASTDisplay.showTypes = false;
 
@@ -61,7 +96,7 @@ public class Compiler {
     // (Done this way for testing purposes)
 
     public static int runFullCompiler(InputStream iStream, String inputPath, boolean displayTree,
-            boolean autoRunAndDebug) {
+            RunMode autoRunAndDebug) {
         // Run the parser & contextual analysis first
         ErrorReporter reporter = new ErrorReporter();
         Parser parser = new Parser(new Scanner(iStream, reporter), reporter);
@@ -96,9 +131,11 @@ public class Compiler {
         }
 
         // Under normal operation, we're done at this point, but for testing, we have the
-        // option to automatically run and debug
+        // option to automatically run or debug
+        if (autoRunAndDebug == RunMode.AUTO_RUN) {
+            Interpreter.interpret(objectCodeFileName);
 
-        if (autoRunAndDebug) {
+        } else if (autoRunAndDebug == RunMode.AUTO_DEBUG) {
             // Create asm file corresponding to object code using disassembler 
             String asmCodeFileName = objectCodeFileName.substring(0, inputPath.length() - 4)
                     + "asm";
