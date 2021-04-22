@@ -246,7 +246,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // If no valid main method was ever found, throw an error
-        // TODO verify what line this error should cite
         error("Error - Entry point \"public static void main(String[] args)\" not found in package",
                 prog.posn.line);
         return null;
@@ -472,7 +471,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Remove this block's frame from the deque
         table.curLocals.pop();
 
-        // TODO verify whether the return actually has to be the *last* statement
         // Return whether this block ended with a return statement
         return isReturn;
     }

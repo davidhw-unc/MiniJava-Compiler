@@ -19,13 +19,4 @@ public class RefExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitRefExpr(this, o);
     }
-
-    // TODO clean up
-    /*
-    @Override
-    public boolean isKnown() {
-        return ref instanceof IdRef && ref.getId().getDecl() instanceof VarDecl
-                && ((VarDecl) ref.getId().getDecl()).getValue() != null;
-    }
-    */
 }

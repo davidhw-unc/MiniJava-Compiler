@@ -8,16 +8,7 @@ package miniJava.AbstractSyntaxTrees;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 
 public abstract class NewExpr extends Expression {
-
     public NewExpr(SourcePosition posn) {
         super(posn);
     }
-
-    // TODO clean up
-    /*
-    @Override
-    public boolean isKnown() {
-        return false;
-    }
-    */
 }

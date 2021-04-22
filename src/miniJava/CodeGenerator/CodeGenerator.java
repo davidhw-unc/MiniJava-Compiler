@@ -272,8 +272,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
             Machine.emit(Op.RETURN, 0, Reg.ZR, curMethodArgCount);
         }
 
-        // TODO go back to ContextualAnalyzer and rethink return presence checking
-
         return null;
     }
 
@@ -1125,18 +1123,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
             case NOT_EQUAL:
                 Machine.emit(Prim.ne);
                 break;
-            case OR:
-                /*
-                TODO clean up
-                Machine.emit(Prim.or);
-                break;
-                */
-            case AND:
-                /*
-                TODO clean up
-                Machine.emit(Prim.and);
-                break;
-                */
+            // AND and OR are intentionally *not* handled here, as this function isn't set up to
+            // handle short-circuiting operators
             default:
                 throw new IllegalStateException("It shouldn't be possible to reach this line");
         }

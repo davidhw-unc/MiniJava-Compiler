@@ -21,14 +21,4 @@ public class IxExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitIxExpr(this, o);
     }
-
-    // TODO clean up
-    // Even if I undelete these, DO NOT restore this one... it's very wrong 
-    /*
-    @Override
-    public boolean isKnown() {
-        return ixExpr.isKnown() && ref instanceof IdRef && ref.getId().getDecl() instanceof VarDecl
-                && ((VarDecl) ref.getId().getDecl()).getValue() != null;
-    }
-    */
 }

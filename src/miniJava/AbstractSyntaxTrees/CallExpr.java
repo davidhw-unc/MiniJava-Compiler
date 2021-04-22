@@ -31,12 +31,4 @@ public class CallExpr extends Expression implements MethodCaller {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitCallExpr(this, o);
     }
-
-    // TODO clean up
-    /*
-    @Override
-    public boolean isKnown() {
-        return false;
-    }
-    */
 }

@@ -19,12 +19,4 @@ public class LiteralExpr extends Expression {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitLiteralExpr(this, o);
     }
-
-    // TODO clean up
-    /*
-    @Override
-    public boolean isKnown() {
-        return true;
-    }
-    */
 }
