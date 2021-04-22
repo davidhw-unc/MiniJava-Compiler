@@ -783,6 +783,46 @@ public class CodeGenerator implements Visitor<Object, Object> {
     }
 
     @Override
+    public Object visitTernaryExpr(TernaryExpr te, Object arg) {
+        // Visit the conditional
+        // If it's known at compile time, it'll be returned, otherwise instructions will be emitted
+        // that leave the value on the stack
+        Integer condVal = (Integer) te.leftExpr.visit(this, arg);
+
+        // If condVal is known, we simply have to emit instructions for the indicated expression
+        if (condVal != null) {
+            forcePushResult((Integer) (condVal == Machine.trueRep ? te.midExpr : te.rightExpr)
+                    .visit(this, arg), arg);
+            return null;
+        }
+
+        // If it's not known, we need to emit code for both paths that can be chosen conditionally
+        // The conditional's value is already on the stack
+
+        // Emit JUMPIF to skip midExpr if cond is false (will need to be patched)
+        int skipMidExprInstAddr = Machine.nextInstrAddr();
+        Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+
+        // Emit instructions for evaluating midExpr
+        forcePushResult((Integer) te.midExpr.visit(this, arg), arg);
+
+        // Emit a jump to skip rightExpr (this will also need to be patched)
+        int skipRightExprInstAddr = Machine.nextInstrAddr();
+        Machine.emit(Op.JUMP, Reg.CB, -1);
+
+        // Patch the first jump so it takes us here
+        Machine.patch(skipMidExprInstAddr, Machine.nextInstrAddr());
+
+        // Emit instructions for evaluating rightExpr
+        forcePushResult((Integer) te.rightExpr.visit(this, arg), arg);
+
+        // Patch the second jump so it takes us here
+        Machine.patch(skipRightExprInstAddr, Machine.nextInstrAddr());
+
+        return null;
+    }
+
+    @Override
     public Object visitRefExpr(RefExpr re, Object arg) {
         // Note: If we're in a loop, no locals are considered known
 

@@ -331,8 +331,22 @@ public class Parser {
     // Expression parsing
     // ------------------
 
-    // || (binary)
+    // ?: (ternary)
     private Expression parseExpression() throws SyntaxException {
+        Token start = scan.peek();
+        Expression expr = parseExprE();
+        Token oper = scan.peek(); // We just use '?' for the operator, ':' is discarded
+        while (acceptOpt(Q_MARK) != null) {
+            Expression midExpr = parseExpression();
+            accept(COLON);
+            Expression rightExpr = parseExpression();
+            expr = new TernaryExpr(new Operator(oper, 3), expr, midExpr, rightExpr, start.posn);
+        }
+        return expr;
+    }
+
+    // || (binary)
+    private Expression parseExprE() throws SyntaxException {
         Token start = scan.peek();
         Expression expr = parseExprF();
         Token oper = scan.peek();

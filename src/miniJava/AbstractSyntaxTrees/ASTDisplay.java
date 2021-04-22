@@ -371,6 +371,19 @@ public class ASTDisplay implements Visitor<String, Object> {
         return null;
     }
 
+    @Override
+    public Object visitTernaryExpr(TernaryExpr te, String arg) {
+        show(arg, te);
+        if (showTypes) {
+            te.getType().visit(this, indent(arg));
+        }
+        te.operator.visit(this, indent(arg));
+        te.leftExpr.visit(this, indent(indent(arg)));
+        te.midExpr.visit(this, indent(indent(arg)));
+        te.rightExpr.visit(this, indent(indent(arg)));
+        return null;
+    }
+
     ///////////////////////////////////////////////////////////////////////////////
     //
     // REFERENCES
