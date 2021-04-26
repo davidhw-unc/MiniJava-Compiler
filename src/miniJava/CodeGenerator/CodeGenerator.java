@@ -46,6 +46,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         curStaticCount = 0;
         ifLayerCount = 0;
         loopLayerCount = 0;
+        hasCalledPrintln = false;
 
         ast.visit(this, null);
     }
@@ -54,6 +55,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
     private void emitCall(MethodCaller caller) {
         // Get the method's declaration
         MethodDecl method = (MethodDecl) caller.getMethodRef().getId().getDecl();
+
+        if (method == printlnMethod) {
+            hasCalledPrintln = true;
+        }
 
         // Put parameter values on the stack
         for (Expression argExpr : caller.getArgList()) {
@@ -125,6 +130,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
     private int ifLayerCount; // Don't read directly, use inIf()
     private int loopLayerCount; // Don't read directly, use inLoop()
     private int curMethodArgCount;
+    private boolean hasCalledPrintln;
+    private MethodDecl printlnMethod;
 
     // Used in the conditional portion of while loops, if statements, and ternary expressions when
     // the top-level operator can short-circuit
@@ -146,6 +153,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
         Machine.initCodeGen();
         System.out.println("Beginning code generation...");
 
+        // Save a reference to the dummy println method
+        printlnMethod = prog.printlnMethod;
+
         // Calculate data value for each class and field declaration (pass 1)
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, 1);
@@ -161,7 +171,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             Machine.emit(Op.PUSH, curStaticCount);
         }
         // Note: these are all initialized to 0 since that's how real Java initializes array elements
-        
+
         // Create empty args array
         Machine.emit(Op.LOADL, 0);
         Machine.emit(Prim.newarr);
@@ -171,22 +181,24 @@ public class CodeGenerator implements Visitor<Object, Object> {
         Machine.emit(Op.CALL, Reg.CB, -1);
         // Halt execution
         Machine.emit(Op.HALT, 0, Reg.ZR, 0);
-        
-        // Create the println method's code
-        // Record the method's code address
-        prog.printlnMethod.data = Machine.nextInstrAddr();
-        // Load the number being printed
-        Machine.emit(Op.LOAD, Reg.LB, -1);
-        // Print
-        Machine.emit(Prim.putintnl);
-        // Return nothing
-        Machine.emit(Op.RETURN, 0, Reg.ZR, 1);
-        
+
         // Generate code for each MethodDecl (pass 2)
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, 2);
         }
-        
+
+        // Create the println method's code if it has been used
+        if (hasCalledPrintln) {
+            // Record the method's code address
+            prog.printlnMethod.data = Machine.nextInstrAddr();
+            // Load the number being printed
+            Machine.emit(Op.LOAD, Reg.LB, -1);
+            // Print
+            Machine.emit(Prim.putintnl);
+            // Return nothing
+            Machine.emit(Op.RETURN, 0, Reg.ZR, 1);
+        }
+
         // Perform necessary patching
         for (PatchNote patch : patchesToDo) {
             if (patch.decl.data == Integer.MIN_VALUE) {
@@ -194,7 +206,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             }
             Machine.patch(patch.addr, patch.decl.data);
         }
-        
+
         return null;
     }
 
