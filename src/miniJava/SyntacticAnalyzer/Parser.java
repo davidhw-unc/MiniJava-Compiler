@@ -391,12 +391,12 @@ public class Parser {
         return expr;
     }
 
-    // * / (binary)
+    // * / % (binary)
     private Expression parseExprJ() throws SyntaxException {
         Token start = scan.peek();
         Expression expr = parseExprK();
         Token oper = scan.peek();
-        while (acceptOpt(MULTIPLY, DIVIDE) != null) {
+        while (acceptOpt(MULTIPLY, DIVIDE, MODULUS) != null) {
             expr = new BinaryExpr(new Operator(oper, 2), expr, parseExprK(), start.posn);
             oper = scan.peek();
         }

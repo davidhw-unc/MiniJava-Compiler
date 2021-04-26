@@ -334,8 +334,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
             localsOffset = (int) stmt.visit(this, localsOffset);
         }
 
-        // Pop off stack entries equal to localsOffset - arg
-        Machine.emit(Op.POP, localsOffset - (int) arg);
+        // Pop off stack entries equal to localsOffset - arg (if its > 0)
+        if (localsOffset - (int) arg > 0) {
+            Machine.emit(Op.POP, localsOffset - (int) arg);
+        }
 
         // Return the *original* stack variable count
         return arg;
@@ -449,6 +451,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
     public Object visitIfStmt(IfStmt is, Object arg) {
         // Mark that we are entering an if statement
         enterIf();
+
+        // TODO If condVal is unknown and has && or || as its top-level operator, we can optimize
 
         // Visit the conditional expression- if it's not known at compile time, the value will be
         // put on the stack
@@ -635,6 +639,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
                     } else {
                         return left / right;
                     }
+                case MODULUS:
+                    return left % right;
                 case EQUAL_TO:
                     return boolToInt(left == right);
                 case NOT_EQUAL:
@@ -1116,6 +1122,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 break;
             case DIVIDE:
                 Machine.emit(Prim.div);
+                break;
+            case MODULUS:
+                Machine.emit(Prim.mod);
                 break;
             case EQUAL_TO:
                 Machine.emit(Prim.eq);
