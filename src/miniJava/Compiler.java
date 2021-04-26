@@ -54,6 +54,7 @@ public class Compiler {
         }
 
         System.exit(runAllOnFile(path, false, mode));
+        //System.exit(runThroughCAOnFile(path, true));
     }
 
     public static int runAllOnFile(String path, boolean displayTree, RunMode autoRunAndDebug) {
@@ -95,7 +96,7 @@ public class Compiler {
     // These methods each return the intended exit code
     // (Done this way for testing purposes)
 
-    public static int runFullCompiler(InputStream iStream, String inputPath, boolean displayTree,
+    private static int runFullCompiler(InputStream iStream, String inputPath, boolean displayTree,
             RunMode autoRunAndDebug) {
         // Run the parser & contextual analysis first
         ErrorReporter reporter = new ErrorReporter();
@@ -130,34 +131,31 @@ public class Compiler {
             System.out.println("SUCCEEDED");
         }
 
+        // Create asm file corresponding to object code using disassembler 
+        String asmCodeFileName = objectCodeFileName.substring(0, inputPath.length() - 4) + "asm";
+        System.out.print("Writing assembly file " + asmCodeFileName + " ... ");
+        Disassembler d = new Disassembler(objectCodeFileName);
+        if (d.disassemble()) {
+            System.out.println("FAILED!");
+            return -1;
+        } else System.out.println("SUCCEEDED");
+
         // Under normal operation, we're done at this point, but for testing, we have the
         // option to automatically run or debug
         if (autoRunAndDebug == RunMode.AUTO_RUN) {
             Interpreter.interpret(objectCodeFileName);
-
         } else if (autoRunAndDebug == RunMode.AUTO_DEBUG) {
-            // Create asm file corresponding to object code using disassembler 
-            String asmCodeFileName = objectCodeFileName.substring(0, inputPath.length() - 4)
-                    + "asm";
-            System.out.print("Writing assembly file " + asmCodeFileName + " ... ");
-            Disassembler d = new Disassembler(objectCodeFileName);
-            if (d.disassemble()) {
-                System.out.println("FAILED!");
-                return -1;
-            } else System.out.println("SUCCEEDED");
-
-            // Run the debugger
             System.out.println("Running code in debugger ... ");
             Interpreter.debug(objectCodeFileName, asmCodeFileName);
-
-            System.out.println("*** mJAM execution completed");
         }
+
+        System.out.println("*** mJAM execution completed");
 
         // If we've reached this point, there weren't any compilation errors, so we can exit with 0
         return 0;
     }
 
-    public static int runParserWithContextualAnalysis(InputStream iStream, boolean displayTree) {
+    private static int runParserWithContextualAnalysis(InputStream iStream, boolean displayTree) {
         ErrorReporter reporter = new ErrorReporter();
         Parser parser = new Parser(new Scanner(iStream, reporter), reporter);
         AST ast = parser.parse();

@@ -36,6 +36,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         boolean isCurMethodStatic = false;
         boolean stillNeedReturn = false;
         VarDecl activeVarDecl = null;
+        long lineForVisitingTernary;
 
         boolean curInInitialPass = false;
 
@@ -734,11 +735,37 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Validate the operand types and set the UnaryExpression's type appropriately
         TypeDenoter exprType = func.apply(expr.leftExpr.getType(), expr.rightExpr.getType());
         if (exprType == null) {
-            error("Invalid operand type for binary operator " + expr.operator.spelling,
+            error("Type error - invalid operand type for binary operator " + expr.operator.spelling,
                     expr.operator.posn.line);
             exprType = generic_error_type;
         }
         expr.setType(exprType);
+
+        return null;
+    }
+
+    @Override
+    public Object visitTernaryExpr(TernaryExpr te, IdentificationTable table) {
+        // Visit the Operator & store the validation function that's returned
+        table.lineForVisitingTernary = te.posn.line;
+        @SuppressWarnings("unchecked")
+        TernaryOperator<TypeDenoter> func = (TernaryOperator<TypeDenoter>) te.operator.visit(this,
+                table);
+
+        // Visit the three expressions
+        te.leftExpr.visit(this, table);
+        te.midExpr.visit(this, table);
+        te.rightExpr.visit(this, table);
+
+        // Validate the types
+        TypeDenoter exprType = func.apply(te.leftExpr.getType(), te.midExpr.getType(),
+                te.rightExpr.getType());
+        if (exprType == null) {
+            error("Type error - middle and right expression types in ternary operator do not match",
+                    te.posn.line);
+            exprType = generic_error_type;
+        }
+        te.setType(exprType);
 
         return null;
     }
@@ -1082,6 +1109,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         return null;
     }
 
+    @FunctionalInterface
+    private interface TernaryOperator<T> {
+        public T apply(T a, T b, T c);
+    }
+
     // Note: Actually using the return value here!!!
     @SuppressWarnings("incomplete-switch")
     @Override
@@ -1091,9 +1123,24 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // and returns null if not (in which case, an error should be reported and the
         // expression's type should be set to ERROR)
 
-        // Binary operators will return a BiPredicate<TypeDenoter, TypeDenoter>
-        // Unary operators will return a Predicate<TypeDenoter>
+        // Ternary operators will return a TernaryOperator<TypeDenoter>
+        // Binary operators will return a BinaryOperator<TypeDenoter>
+        // Unary operators will return a UnaryOperator<TypeDenoter>
         switch (op.kind) {
+            // Ternary operators
+            case Q_MARK:
+                return (TernaryOperator<TypeDenoter>) (a, b, c) -> {
+                    if (!typeEq(a, BaseType.bool_dummy)) {
+                        error("Type error - ternary expression has non-boolean conditional",
+                                table.lineForVisitingTernary);
+                    }
+                    return typeEq(b, c)
+                            ? b.typeKind == TypeKind.ERROR || c.typeKind == TypeKind.ERROR
+                                    ? generic_error_type
+                                    : b
+                            : null;
+                };
+
             // Binary operators
             case OR:
             case AND:

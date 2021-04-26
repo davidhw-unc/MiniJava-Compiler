@@ -23,64 +23,66 @@ public interface Visitor<ArgType, ResultType> {
 
     public ResultType visitParameterDecl(ParameterDecl pd, ArgType arg);
 
-    public ResultType visitVarDecl(VarDecl decl, ArgType arg);
+    public ResultType visitVarDecl(VarDecl vd, ArgType arg);
 
     // Types
-    public ResultType visitBaseType(BaseType type, ArgType arg);
+    public ResultType visitBaseType(BaseType bt, ArgType arg);
 
-    public ResultType visitClassType(ClassType type, ArgType arg);
+    public ResultType visitClassType(ClassType ct, ArgType arg);
 
-    public ResultType visitArrayType(ArrayType type, ArgType arg);
+    public ResultType visitArrayType(ArrayType at, ArgType arg);
 
     // Statements
-    public ResultType visitBlockStmt(BlockStmt stmt, ArgType arg);
+    public ResultType visitBlockStmt(BlockStmt bs, ArgType arg);
 
-    public ResultType visitVarDeclStmt(VarDeclStmt stmt, ArgType arg);
+    public ResultType visitVarDeclStmt(VarDeclStmt vds, ArgType arg);
 
-    public ResultType visitAssignStmt(AssignStmt stmt, ArgType arg);
+    public ResultType visitAssignStmt(AssignStmt as, ArgType arg);
 
-    public ResultType visitIxAssignStmt(IxAssignStmt stmt, ArgType arg);
+    public ResultType visitIxAssignStmt(IxAssignStmt ias, ArgType arg);
 
-    public ResultType visitCallStmt(CallStmt stmt, ArgType arg);
+    public ResultType visitCallStmt(CallStmt cs, ArgType arg);
 
-    public ResultType visitReturnStmt(ReturnStmt stmt, ArgType arg);
+    public ResultType visitReturnStmt(ReturnStmt rs, ArgType arg);
 
-    public ResultType visitIfStmt(IfStmt stmt, ArgType arg);
+    public ResultType visitIfStmt(IfStmt is, ArgType arg);
 
-    public ResultType visitWhileStmt(WhileStmt stmt, ArgType arg);
+    public ResultType visitWhileStmt(WhileStmt ws, ArgType arg);
 
     // Expressions
-    public ResultType visitUnaryExpr(UnaryExpr expr, ArgType arg);
+    public ResultType visitUnaryExpr(UnaryExpr ue, ArgType arg);
 
-    public ResultType visitBinaryExpr(BinaryExpr expr, ArgType arg);
+    public ResultType visitBinaryExpr(BinaryExpr be, ArgType arg);
 
-    public ResultType visitRefExpr(RefExpr expr, ArgType arg);
+    public ResultType visitTernaryExpr(TernaryExpr te, ArgType arg);
 
-    public ResultType visitIxExpr(IxExpr expr, ArgType arg);
+    public ResultType visitRefExpr(RefExpr re, ArgType arg);
 
-    public ResultType visitCallExpr(CallExpr expr, ArgType arg);
+    public ResultType visitIxExpr(IxExpr ie, ArgType arg);
 
-    public ResultType visitLiteralExpr(LiteralExpr expr, ArgType arg);
+    public ResultType visitCallExpr(CallExpr ce, ArgType arg);
 
-    public ResultType visitNewObjectExpr(NewObjectExpr expr, ArgType arg);
+    public ResultType visitLiteralExpr(LiteralExpr le, ArgType arg);
 
-    public ResultType visitNewArrayExpr(NewArrayExpr expr, ArgType arg);
+    public ResultType visitNewObjectExpr(NewObjectExpr noe, ArgType arg);
 
-    public ResultType visitNullExpr(NullExpr expr, ArgType arg);
+    public ResultType visitNewArrayExpr(NewArrayExpr nae, ArgType arg);
+
+    public ResultType visitNullExpr(NullExpr ne, ArgType arg);
 
     // References
-    public ResultType visitThisRef(ThisRef ref, ArgType arg);
+    public ResultType visitThisRef(ThisRef tr, ArgType arg);
 
-    public ResultType visitIdRef(IdRef ref, ArgType arg);
+    public ResultType visitIdRef(IdRef ir, ArgType arg);
 
-    public ResultType visitQualRef(QualRef ref, ArgType arg);
+    public ResultType visitQualRef(QualRef qr, ArgType arg);
 
     // Terminals
-    public ResultType visitIdentifier(Identifier id, ArgType arg);
+    public ResultType visitIdentifier(Identifier i, ArgType arg);
 
-    public ResultType visitOperator(Operator op, ArgType arg);
+    public ResultType visitOperator(Operator o, ArgType arg);
 
-    public ResultType visitIntLiteral(IntLiteral num, ArgType arg);
+    public ResultType visitIntLiteral(IntLiteral il, ArgType arg);
 
-    public ResultType visitBooleanLiteral(BooleanLiteral bool, ArgType arg);
+    public ResultType visitBooleanLiteral(BooleanLiteral bl, ArgType arg);
 }

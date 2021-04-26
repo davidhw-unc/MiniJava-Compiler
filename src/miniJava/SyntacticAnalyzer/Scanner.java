@@ -149,6 +149,8 @@ public class Scanner implements Iterable<Token> {
                     break;
 
                 // @formatter:off
+                case '?':   kind = Kind.Q_MARK;       takeIt(curContents);    break;
+                case ':':   kind = Kind.COLON;        takeIt(curContents);    break;
                 case '(':   kind = Kind.LPAREN;       takeIt(curContents);    break;
                 case ')':   kind = Kind.RPAREN;       takeIt(curContents);    break;
                 case '[':   kind = Kind.LBRACKET;     takeIt(curContents);    break;
