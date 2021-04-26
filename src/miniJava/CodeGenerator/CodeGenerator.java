@@ -807,23 +807,23 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Emit JUMPIF to skip midExpr if cond is false (will need to be patched)
         int skipMidExprInstAddr = Machine.nextInstrAddr();
-        Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+        if ((Boolean) arg) Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
 
         // Emit instructions for evaluating midExpr
         forcePushResult((Integer) te.midExpr.visit(this, arg), arg);
 
         // Emit a jump to skip rightExpr (this will also need to be patched)
         int skipRightExprInstAddr = Machine.nextInstrAddr();
-        Machine.emit(Op.JUMP, Reg.CB, -1);
+        if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, -1);
 
         // Patch the first jump so it takes us here
-        Machine.patch(skipMidExprInstAddr, Machine.nextInstrAddr());
+        if ((Boolean) arg) Machine.patch(skipMidExprInstAddr, Machine.nextInstrAddr());
 
         // Emit instructions for evaluating rightExpr
         forcePushResult((Integer) te.rightExpr.visit(this, arg), arg);
 
         // Patch the second jump so it takes us here
-        Machine.patch(skipRightExprInstAddr, Machine.nextInstrAddr());
+        if ((Boolean) arg) Machine.patch(skipRightExprInstAddr, Machine.nextInstrAddr());
 
         return null;
     }
