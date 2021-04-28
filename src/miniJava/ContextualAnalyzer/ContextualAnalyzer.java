@@ -235,9 +235,14 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
                             if (type.eltType instanceof ClassType
                                     && ((ClassType) type.eltType).className.equals("String")) {
-                                // Found valid main method - can now store it & return safely
-                                prog.mainMethod = decl;
-                                return null;
+                                // If another valid main method was already found, register an error
+                                if (prog.mainMethod != null) {
+                                    error("Error - Additional valid main method found",
+                                            decl.posn.line);
+                                } else {
+                                    // Else, found valid main method - can now store it & return safely
+                                    prog.mainMethod = decl;
+                                }
                             }
                         }
                     }
@@ -246,8 +251,10 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         // If no valid main method was ever found, throw an error
-        error("Error - Entry point \"public static void main(String[] args)\" not found in package",
-                prog.posn.line);
+        if (prog.mainMethod == null) {
+            error("Error - Entry point \"public static void main(String[] args)\" not found in package",
+                    prog.posn.line);
+        }
         return null;
     }
 
