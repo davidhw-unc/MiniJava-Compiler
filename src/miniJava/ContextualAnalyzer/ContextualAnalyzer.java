@@ -227,7 +227,8 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 if (uncastDecl instanceof MethodDecl) {
                     MethodDecl decl = (MethodDecl) uncastDecl;
 
-                    if (decl.isStatic && decl.parameterDeclList.size() == 1) {
+                    if (decl.isStatic && typeEq(decl.getType(), BaseType.void_dummy)
+                            && decl.parameterDeclList.size() == 1) {
 
                         TypeDenoter uncastType = decl.parameterDeclList.get(0).getType();
                         if (uncastType instanceof ArrayType) {
