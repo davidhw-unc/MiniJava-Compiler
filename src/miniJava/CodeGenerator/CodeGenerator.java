@@ -267,8 +267,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
 
         // Add empty return to end of void methods if not already present
-        if (md.getType().typeKind == TypeKind.VOID
-                && !(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt)) {
+        if (md.getType().typeKind == TypeKind.VOID && (md.statementList.size() == 0
+                || !(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt))) {
             Machine.emit(Op.RETURN, 0, Reg.ZR, curMethodArgCount);
         }
 
