@@ -504,7 +504,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
     }
 
     @Override
-    public Object visitWhileStmt(WhileStmt ws, Object arg) {
+    public Object visitWhileStmt(LoopStmt ws, Object arg) {
+        // TODO redo this to handle generalized loops
+
         // Evaluate the conditional once to start
         Integer initVal = (Integer) ws.condExpr.visit(this, true);
 
@@ -513,7 +515,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         if (initVal == null || initVal == Machine.trueRep) {
             int initSkipAddr = -1;
 
-            // If condVal is initially known to be true, skip first eval of the conditional
+            // If condVal isn't initially known to be true, perform the first conditional evaluation
             if (initVal == null || initVal != Machine.trueRep) {
                 // Force the conditional's value to be on the stack
                 forcePushResult(initVal, true);
@@ -531,8 +533,16 @@ public class CodeGenerator implements Visitor<Object, Object> {
             ws.body.visit(this, arg);
 
             // Evaluate the conditional again, leave it on the stack, then JUMPIF back to the body
-            forcePushResult((Integer) ws.condExpr.visit(this, true), true);
-            Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
+            // If the conditional is known to be true here, just JUMP back- this loop will repeat
+            // indefinitely
+            // If the conditional is (somehow) now known to be false, there's no need to even emit a
+            // jump instruction
+            Integer condVal = (Integer) ws.condExpr.visit(this, true);
+            if (condVal == Machine.trueRep) {
+                Machine.emit(Op.JUMP, Reg.CB, bodyStartAddr);
+            } else if (condVal != Machine.falseRep) {
+                Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
+            }
 
             // Patch the "initial false" skip if present
             if (initSkipAddr != -1) {

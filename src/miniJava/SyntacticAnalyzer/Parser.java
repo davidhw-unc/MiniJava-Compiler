@@ -181,7 +181,7 @@ public class Parser {
     private Statement parseStatement() throws SyntaxException {
         Token first = scan.peek();
         Statement stmt = null;
-        Kind firstKind = acceptOpt(LBRACE, RETURN, IF, WHILE);
+        Kind firstKind = acceptOpt(LBRACE, RETURN, IF, WHILE, FOR);
         if (firstKind == null) {
             switch (scan.peek().kind) {
                 case INT:
@@ -320,7 +320,67 @@ public class Parser {
                     accept(LPAREN);
                     Expression condi = parseExpression();
                     accept(RPAREN);
-                    stmt = new WhileStmt(condi, parseStatement(), first.posn);
+                    stmt = new LoopStmt(condi, parseStatement(), first.posn);
+                    break;
+                case FOR:
+                    // For loop
+                    accept(LPAREN);
+
+                    // Parse the initializer
+                    StatementList initList = null;
+                    VarDeclStmt initDecl = null;
+                    if (acceptOpt(SEMICOLON) == null) {
+                        // If there is, collect it
+                        Statement firstInitStmt = parseStatement();
+                        // Check for a comma- if we find one, this for loop uses an initializer list
+                        Kind res = acceptOpt(COMMA);
+                        if (res != null) {
+                            initList = new StatementList();
+                            initList.add(firstInitStmt);
+                            do {
+                                initList.add(parseStatement());
+                            } while (acceptOpt(COMMA) != null);
+                            // Validate that initList only contains appropriate statement types
+                            // This exclusively includes AssignStmt, IxAssignStmt, and CallStmt
+                            for (Statement s : initList) {
+                                if (!(s instanceof AssignStmt || s instanceof IxAssignStmt
+                                        || s instanceof CallStmt)) {
+                                    throw parseError("If a for statement uses multiple statements "
+                                            + "in its initializer, they can only be assignments or "
+                                            + "method calls");
+                                }
+                            }
+                        } else {
+                            // If there wasn't a comma, there was only one statement. Check the type
+                            // of statement- AssignStmt, IxAssignStmt, and CallStmt get put
+                            // individually in a list for initList, while VarDeclStmt is put in
+                            // initDecl. Anything else produces an error.
+                            if (firstInitStmt instanceof AssignStmt
+                                    || firstInitStmt instanceof IxAssignStmt
+                                    || firstInitStmt instanceof CallStmt) {
+                                initList = new StatementList();
+                                initList.add(firstInitStmt);
+                            } else if (firstInitStmt instanceof VarDeclStmt) {
+                                initDecl = (VarDeclStmt) firstInitStmt;
+                            } else {
+                                throw parseError("If a for loop uses a single statement in its "
+                                        + "initializer, it can only be a variable declaration, an "
+                                        + "assignment, or a method call");
+                            }
+                        }
+                        accept(SEMICOLON);
+                    } // With no initializer, both initList and initDecl stay null
+
+                    // Parse the conditional
+                    Expression condExpr;
+                    if (acceptOpt(SEMICOLON) == null) {
+
+                    } else {
+                        // If there's no conditional, just make the expression a true literal
+
+                    }
+
+                    // TODO finish parsing for loops
                     break;
             }
         }

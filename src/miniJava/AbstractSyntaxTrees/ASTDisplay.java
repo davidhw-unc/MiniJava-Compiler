@@ -258,7 +258,7 @@ public class ASTDisplay implements Visitor<String, Object> {
     }
 
     @Override
-    public Object visitWhileStmt(WhileStmt stmt, String arg) {
+    public Object visitWhileStmt(LoopStmt stmt, String arg) {
         show(arg, stmt);
         stmt.condExpr.visit(this, indent(arg));
         stmt.body.visit(this, indent(arg));

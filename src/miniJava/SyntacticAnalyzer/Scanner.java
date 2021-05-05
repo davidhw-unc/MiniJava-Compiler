@@ -96,6 +96,9 @@ public class Scanner implements Iterable<Token> {
                 case "null":
                     kind = NULL;
                     break;
+                case "for":
+                    kind = FOR;
+                    break;
                 default:
                     kind = ID;
                     break;

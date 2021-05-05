@@ -673,7 +673,9 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     }
 
     @Override
-    public Object visitWhileStmt(WhileStmt stmt, IdentificationTable table) {
+    public Object visitWhileStmt(LoopStmt stmt, IdentificationTable table) {
+        // TODO redo this to handle generalized loops
+
         // Visit conditional expression
         stmt.condExpr.visit(this, table);
 
