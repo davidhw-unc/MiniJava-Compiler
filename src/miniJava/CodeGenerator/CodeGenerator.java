@@ -12,6 +12,7 @@ import mJAM.Machine.Reg;
 import miniJava.AbstractSyntaxTrees.*;
 import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.ContextualAnalyzer.ContextualAnalyzer;
+import miniJava.SyntacticAnalyzer.Token.Kind;
 
 public class CodeGenerator implements Visitor<Object, Object> {
 
@@ -45,6 +46,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         curStaticCount = 0;
         ifLayerCount = 0;
         loopLayerCount = 0;
+        hasCalledPrintln = false;
 
         ast.visit(this, null);
     }
@@ -53,6 +55,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
     private void emitCall(MethodCaller caller) {
         // Get the method's declaration
         MethodDecl method = (MethodDecl) caller.getMethodRef().getId().getDecl();
+
+        if (method == printlnMethod) {
+            hasCalledPrintln = true;
+        }
 
         // Put parameter values on the stack
         for (Expression argExpr : caller.getArgList()) {
@@ -124,6 +130,16 @@ public class CodeGenerator implements Visitor<Object, Object> {
     private int ifLayerCount; // Don't read directly, use inIf()
     private int loopLayerCount; // Don't read directly, use inLoop()
     private int curMethodArgCount;
+    private boolean hasCalledPrintln;
+    private MethodDecl printlnMethod;
+
+    // Used in the conditional portion of while loops, if statements, and ternary expressions when
+    // the top-level operator can short-circuit
+    // TODO needed?
+    private int firstJumpOpAddr;
+
+    // This is only changed when code is actually emitted (this includes forcePushResult)
+    private Kind lastExprWasSSBinary = null;
 
     ///////////////////////////////////////////////////////////////////////////////
     //
@@ -136,6 +152,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Initialize the code generator
         Machine.initCodeGen();
         System.out.println("Beginning code generation...");
+
+        // Save a reference to the dummy println method
+        printlnMethod = prog.printlnMethod;
 
         // Calculate data value for each class and field declaration (pass 1)
         for (ClassDecl c : prog.classDeclList) {
@@ -151,7 +170,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         if (curStaticCount > 0) {
             Machine.emit(Op.PUSH, curStaticCount);
         }
-        // Note: these are all initialized to 0 since that's how real Java initializes array elements
+        // These are all initialized to 0 since that's how real Java initializes array elements
 
         // Create empty args array
         Machine.emit(Op.LOADL, 0);
@@ -163,19 +182,21 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Halt execution
         Machine.emit(Op.HALT, 0, Reg.ZR, 0);
 
-        // Create the println method's code
-        // Record the method's code address
-        prog.printlnMethod.data = Machine.nextInstrAddr();
-        // Load the number being printed
-        Machine.emit(Op.LOAD, Reg.LB, -1);
-        // Print
-        Machine.emit(Prim.putintnl);
-        // Return nothing
-        Machine.emit(Op.RETURN, 0, Reg.ZR, 1);
-
         // Generate code for each MethodDecl (pass 2)
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, 2);
+        }
+
+        // Create the println method's code if it has been used
+        if (hasCalledPrintln) {
+            // Record the method's code address
+            prog.printlnMethod.data = Machine.nextInstrAddr();
+            // Load the number being printed
+            Machine.emit(Op.LOAD, Reg.LB, -1);
+            // Print
+            Machine.emit(Prim.putintnl);
+            // Return nothing
+            Machine.emit(Op.RETURN, 0, Reg.ZR, 1);
         }
 
         // Perform necessary patching
@@ -449,6 +470,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitIfStmt(IfStmt is, Object arg) {
+        // TODO add optimization for == or != with one known operand
+
         // Mark that we are entering an if statement
         enterIf();
 
@@ -475,27 +498,58 @@ public class CodeGenerator implements Visitor<Object, Object> {
         } else {
             // If condVal is not known, it is on the stack and we must branch according to its value
 
-            // Start by emitting a JUMPIF instruction that skips the thenStmt if false
-            int jumpAddrToSkipThen = Machine.nextInstrAddr();
-            Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+            int jumpSkipToElseAddr = 0;
+            int bonusJumpAddrForAND = 0;
+            boolean wasAND = false;
+
+            // First, handle jump optimizations for when the top level expr short-circuits
+            if (lastExprWasSSBinary != null) {
+                // Remove the last two emitted instructions
+                Machine.CT -= 2;
+
+                // Emit a new JUMPIF - this will be patched to go to after the then block
+                jumpSkipToElseAddr = Machine.nextInstrAddr();
+                Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+
+                // Note: This is all we need to do for OR- the first jump is actually still fine, it
+                // now points to the start of the then block
+
+                if (lastExprWasSSBinary == AND) {
+                    // Record the address of the first jump, as it also needs to skip then
+                    wasAND = true;
+                    bonusJumpAddrForAND = firstJumpOpAddr;
+                }
+
+                // TODO make sure lastExprWasSSBinary gets reset to null (might not need to change anything?)
+            } else {
+                // If condExpr doesn't short-circuit, start by emitting a JUMPIF instruction that
+                // skips the thenStmt if false
+                jumpSkipToElseAddr = Machine.nextInstrAddr();
+                Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
+            }
 
             // Emit the code for thenStmt
             // We know this isn't a solitary declaration, so we don't need to check the return
             is.thenStmt.visit(this, arg);
 
             // If there's an elseStmt, emit an instruction to skip it at the end of the thenStmt
-            int jumpAddrToSkipElse = Machine.nextInstrAddr();
+            int jumpSkipOverElseAddr = Machine.nextInstrAddr();
             if (is.elseStmt != null) {
                 Machine.emit(Op.JUMP, Reg.CB, -1);
             }
 
-            // Patch the first jump
-            Machine.patch(jumpAddrToSkipThen, Machine.nextInstrAddr());
+            // Patch the first jump so that it goes to the else block (or the next instruction)
+            Machine.patch(jumpSkipToElseAddr, Machine.nextInstrAddr());
+
+            // If the top-level expr was AND, we need to patch a second jump as well
+            if (wasAND) {
+                Machine.patch(bonusJumpAddrForAND, Machine.nextInstrAddr());
+            }
 
             // If there's an elseStmt, emit its instructions and patch the second jump
             if (is.elseStmt != null) {
                 is.elseStmt.visit(this, arg);
-                Machine.patch(jumpAddrToSkipElse, Machine.nextInstrAddr());
+                Machine.patch(jumpSkipOverElseAddr, Machine.nextInstrAddr());
             }
         }
 
@@ -582,6 +636,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     private Integer forcePushResult(Integer res, Object shouldEmit) {
         if (res != null && (boolean) shouldEmit) {
+            // If something is being written here, we didn't just process a compile-time-unknown
+            // short-circuiting binary operator
+            lastExprWasSSBinary = null;
+
             // If the returned value isn't null, nothing has been emitted yet
             // Therefore, we need to LOADL that value onto the stack
             Machine.emit(Op.LOADL, res);
@@ -613,7 +671,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         return null;
     }
 
-    private Integer boolToInt(boolean b) {
+    private static Integer boolToInt(boolean b) {
         return b ? Machine.trueRep : Machine.falseRep;
     }
 
@@ -694,17 +752,22 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 // Emit a JUMPIF instruction that skips the evaluation of right if left is true,
                 // but first record the addr of that instruction so we can patch in the addr it's
                 // jumping to
-                int jumpInstToPatch = Machine.nextInstrAddr();
+                int tempFirstJumpOpAddr = Machine.nextInstrAddr();
                 if ((Boolean) arg) Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, -1);
 
                 // Visit right so its code can be generated
                 forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
 
                 // If right wasn't evaluated, we'll need to push a true onto the stack. If right WAS
-                // visited, we need to skip that instruction.
+                // evaluated, we need to skip that instruction.
                 if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
-                if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
+                if ((Boolean) arg) Machine.patch(tempFirstJumpOpAddr, Machine.nextInstrAddr());
                 if ((Boolean) arg) Machine.emit(Op.LOADL, Machine.trueRep);
+
+                // In this case, and ONLY this case, we can indicate that the code emitted on the
+                // is for the short-circuit evaluation of an OR operator just before we return
+                if ((Boolean) arg) firstJumpOpAddr = tempFirstJumpOpAddr;
+                if ((Boolean) arg) lastExprWasSSBinary = OR;
 
                 return null;
 
@@ -733,17 +796,22 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 // Emit a JUMPIF instruction that skips the evaluation of right if left is false,
                 // but first record the addr of that instruction so we can patch in the addr it's
                 // jumping to
-                int jumpInstToPatch = Machine.nextInstrAddr();
+                int tempFirstJumpOpAddr = Machine.nextInstrAddr();
                 if ((Boolean) arg) Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
 
                 // Visit right so its code can be generated
                 forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
 
                 // If right wasn't evaluated, we'll need to push a false onto the stack. If right
-                // WAS visited, we need to skip that instruction.
+                // WAS evaluated, we need to skip that instruction.
                 if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
-                if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
+                if ((Boolean) arg) Machine.patch(tempFirstJumpOpAddr, Machine.nextInstrAddr());
                 if ((Boolean) arg) Machine.emit(Op.LOADL, Machine.falseRep);
+
+                // In this case, and ONLY this case, we can indicate that the code emitted on the
+                // is for the short-circuit evaluation of an AND operator just before we return
+                if ((Boolean) arg) firstJumpOpAddr = tempFirstJumpOpAddr;
+                if ((Boolean) arg) lastExprWasSSBinary = AND;
 
                 return null;
 
@@ -815,6 +883,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Patch the second jump so it takes us here
         if ((Boolean) arg) Machine.patch(skipRightExprInstAddr, Machine.nextInstrAddr());
 
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        if ((Boolean) arg) lastExprWasSSBinary = null;
+
         return null;
     }
 
@@ -833,6 +905,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Otherwise, visit the reference to emit code that will put its value on the stack
         if ((Boolean) arg) re.ref.visit(this, RefVisitMode.READ);
 
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        // Handle this here, rather than in the reference
+        if ((Boolean) arg) lastExprWasSSBinary = null;
+
         // Note: array length members are handled in the QualRef visit method
 
         return null;
@@ -849,6 +926,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Call the arrayref primitive
         if ((Boolean) arg) Machine.emit(Prim.arrayref);
 
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        if ((Boolean) arg) lastExprWasSSBinary = null;
+
         return null;
     }
 
@@ -856,6 +937,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
     public Object visitCallExpr(CallExpr ce, Object arg) {
         // Delegate to EmitCall
         if ((Boolean) arg) emitCall(ce);
+
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        // Handle this here, rather than in emitCall
+        if ((Boolean) arg) lastExprWasSSBinary = null;
 
         // Don't need to do anything else- return value is always left on the stack 
         return null;
@@ -878,6 +964,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // Emit call to the newobj primitive, which will leave the new object's addr on the stack
         if ((Boolean) arg) Machine.emit(Prim.newobj);
 
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        if ((Boolean) arg) lastExprWasSSBinary = null;
+
         return null;
     }
 
@@ -888,6 +978,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Emit call to the newarr primitive, which will leave the new array's addr on the stack
         if ((Boolean) arg) Machine.emit(Prim.newarr);
+
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        if ((Boolean) arg) lastExprWasSSBinary = null;
 
         return null;
     }
@@ -1167,6 +1261,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
             default:
                 throw new IllegalStateException("It shouldn't be possible to reach this line");
         }
+
+        // If something is being written here, we didn't just process a compile-time-unknown
+        // short-circuiting binary operator
+        lastExprWasSSBinary = null;
 
         return null;
     }

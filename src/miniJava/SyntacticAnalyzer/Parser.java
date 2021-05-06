@@ -286,7 +286,9 @@ public class Parser {
                     stmt = new AssignStmt(refr, parseExpression(), first.posn);
                     break;
             }
-            if (!forLoopAvoidNoSemicolonError) accept(SEMICOLON);
+            if (!forLoopAvoidNoSemicolonError) {
+                accept(SEMICOLON);
+            }
         } else {
             switch (firstKind) {
                 case LBRACE:
