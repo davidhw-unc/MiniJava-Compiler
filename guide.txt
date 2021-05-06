@@ -1,0 +1,4 @@
+# Scope
+
+I have (as far as I'm aware) successfully implemented all the base requirements for
+PA4, and my compiler passes all the tests provided for that checkpoint. I've also 

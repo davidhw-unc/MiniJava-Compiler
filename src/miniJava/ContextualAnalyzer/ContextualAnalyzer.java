@@ -139,29 +139,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             return generic_error_type;
         }
 
-        // Store the corresponding MethodDecl
-        MethodDecl methodDecl = (MethodDecl) methodRef.getId().getDecl();
-
-        // Check the number of parameters
-        if (argList.size() != methodDecl.parameterDeclList.size()) {
-            error("Type error - incorrect number of parameters in call to function "
-                    + methodDecl.name, posn.line);
-        } else {
-
-            // Check the type of each parameter
-            for (int i = 0; i < argList.size(); ++i) {
-                // Visit the parameter declaration's type (to make sure it's been visited)
-                methodDecl.parameterDeclList.get(i).getType().visit(this, table);
-                // Compare the types
-                if (!typeEq(argList.get(i).getType(),
-                        methodDecl.parameterDeclList.get(i).getType())) {
-                    error("Type error - the type of parameter " + i
-                            + " in the function call and the method declaration do not agree",
-                            argList.get(i).posn.line);
-                }
-            }
-        }
-
         return methodRef.getType();
     }
 

@@ -561,6 +561,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitLoopStmt(LoopStmt ls, Object arg) {
+        int initialCT = Machine.nextInstrAddr();
         int newLocalCount = (int) arg;
 
         // Emit instructions for the initializer
@@ -572,52 +573,50 @@ public class CodeGenerator implements Visitor<Object, Object> {
             ls.getInitDecl().visit(this, newLocalCount++);
         }
 
-        // Evaluate the conditional once to start
-        Integer initVal = (Integer) ls.condExpr.visit(this, true);
-
-        // If the conditional was known to be false, we're done, so only continue if it is unknown
-        // or known to be true
-        if (initVal == null || initVal == Machine.trueRep) {
-            int initSkipAddr = -1;
-
-            // If condVal isn't initially known to be true, perform the first conditional evaluation
-            if (initVal == null || initVal != Machine.trueRep) {
-                // Force the conditional's value to be on the stack
-                forcePushResult(initVal, true);
-
-                // Emit JUMPIF to skip body if initially false -- this will need patching
-                initSkipAddr = Machine.nextInstrAddr();
-                Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
-            }
-
+        // Evaluate the conditional without emitting any instructions- if we know its false, we
+        // don't have to emit anything else here; if it's unknown, we need to jump to the
+        // conditional for an initial evaluation before the body runs
+        Integer initialCondVal = (Integer) ls.condExpr.visit(this, false);
+        int jumpToCondAddr = -1;
+        if (initialCondVal == null) {
+            jumpToCondAddr = Machine.nextInstrAddr();
+            Machine.emit(Op.JUMP, Reg.CB, -1);
+        }
+        if (initialCondVal == null || initialCondVal == Machine.trueRep) {
             // Mark that we are entering the repeated portion of a while loop
             enterLoop();
 
-            // Record the current code addr and emit code for the body
+            // Record the current code addr and emit code for the body (which includes the update)
             int bodyStartAddr = Machine.nextInstrAddr();
             ls.body.visit(this, newLocalCount);
 
-            // Evaluate the conditional again, leave it on the stack, then JUMPIF back to the body
-            // If the conditional is known to be true here, just JUMP back- this loop will repeat
-            // indefinitely
+            // Evaluate the conditional, leave it on the stack, then JUMPIF back to the body
+            // If the conditional is known to be true here, just JUMP back instead- this loop will
+            // repeat indefinitely
             // If the conditional is (somehow) now known to be false, there's no need to even emit a
             // jump instruction
+            if (jumpToCondAddr != -1) {
+                Machine.patch(jumpToCondAddr, Machine.nextInstrAddr());
+            }
             Integer condVal = (Integer) ls.condExpr.visit(this, true);
             if (condVal != null && condVal == Machine.trueRep) {
                 Machine.emit(Op.JUMP, Reg.CB, bodyStartAddr);
-            } else if (condVal == null || condVal != Machine.falseRep) {
+            } else if (condVal == null) {
                 Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
-            }
-
-            // Patch the "initial false" skip if present
-            if (initSkipAddr != -1) {
-                Machine.patch(initSkipAddr, Machine.nextInstrAddr());
             }
         }
 
         // If initialization used initDecl, that variable needs to be POPped off the stack
         if (ls.getInitDecl() != null) {
             Machine.emit(Op.POP, 1);
+
+        }
+
+        // If the conditional was known to always be false and initList WASN'T used (as it could
+        // have side effects) we can just remove all instructions emitted for this LoopStmt
+        if (initialCondVal != null && initialCondVal == Machine.falseRep
+                && ls.getInitList() == null) {
+            Machine.CT = initialCT;
         }
 
         // Mark that we are leaving a while loop
