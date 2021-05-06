@@ -520,7 +520,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
                     bonusJumpAddrForAND = firstJumpOpAddr;
                 }
 
-                // TODO make sure lastExprWasSSBinary gets reset to null (might not need to change anything?)
             } else {
                 // If condExpr doesn't short-circuit, start by emitting a JUMPIF instruction that
                 // skips the thenStmt if false
@@ -599,7 +598,20 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 Machine.patch(jumpToCondAddr, Machine.nextInstrAddr());
             }
             Integer condVal = (Integer) ls.condExpr.visit(this, true);
-            if (condVal != null && condVal == Machine.trueRep) {
+            // If the conditional is unknown and short-circuits, we can optimize 
+            if (lastExprWasSSBinary != null && condVal == null) {
+                // Remove the last two emitted instructions
+                Machine.CT -= 2;
+
+                // Patch the middle jump to go back to the start of the body for OR
+                if (lastExprWasSSBinary == OR) {
+                    Machine.patch(firstJumpOpAddr, bodyStartAddr);
+                }
+
+                // Add a JUMPIF that takes us back to the start of the body if the final value
+                // comes out to be true
+                Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
+            } else if (condVal != null && condVal == Machine.trueRep) {
                 Machine.emit(Op.JUMP, Reg.CB, bodyStartAddr);
             } else if (condVal == null) {
                 Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
