@@ -38,7 +38,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         VarDecl activeVarDecl = null;
         long lineForVisitingTernary;
 
-        boolean curInInitialPass = false;
+        int pass;
 
         IdentificationTable() {
             curLocals.add(new HashMap<>());
@@ -120,13 +120,18 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     private TypeDenoter processCall(Reference methodRef, ExprList argList, SourcePosition posn,
             IdentificationTable table) {
-        // Visit methodRef
-        methodRef.visit(this, table);
-
-        // Visit each parameter Expression
-        for (Expression expr : argList) {
-            expr.visit(this, table);
+        // Visit each parameter, building up a list of types so we can find the appropriate mangled
+        // method name
+        TypeDenoter[] types = new TypeDenoter[argList.size()];
+        for (int i = 0; i < argList.size(); ++i) {
+            Expression arg = argList.get(i);
+            arg.visit(this, table);
+            types[i] = arg.getType();
         }
+        methodRef.getId().spelling = mangle(methodRef.getId().spelling, types);
+
+        // Visit methodRef now that the name has been properly mangled
+        methodRef.visit(this, table);
 
         // Make sure that methodRef is, in fact, pointing to a method
         if (methodRef instanceof ThisRef || !(methodRef.getId().getDecl() instanceof MethodDecl)) {
@@ -147,7 +152,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             for (int i = 0; i < argList.size(); ++i) {
                 // Visit the parameter declaration's type (to make sure it's been visited)
                 methodDecl.parameterDeclList.get(i).getType().visit(this, table);
-                // Check that the types agree
+                // Compare the types
                 if (!typeEq(argList.get(i).getType(),
                         methodDecl.parameterDeclList.get(i).getType())) {
                     error("Type error - the type of parameter " + i
@@ -158,6 +163,15 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         }
 
         return methodRef.getType();
+    }
+
+    private String mangle(String origName, TypeDenoter... paramTypes) {
+        StringBuilder builder = new StringBuilder(origName);
+        for (TypeDenoter type : paramTypes) {
+            builder.append("-");
+            builder.append(type.toString());
+        }
+        return builder.toString();
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -200,17 +214,26 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
             table.classes.put(c.name, c);
         }
 
-        // Perform initial pass to get member types assigned (and nothing else!)
-        table.curInInitialPass = true;
+        // Perform initial pass to get member types assigned
+        table.pass = 1;
         systemClass.visit(this, table);
         printStreamClass.visit(this, table);
         stringClass.visit(this, table);
         for (ClassDecl c : prog.classDeclList) {
             c.visit(this, table);
         }
-        table.curInInitialPass = false;
+
+        // Perform second pass to carry out method name mangling
+        table.pass = 2;
+        systemClass.visit(this, table);
+        printStreamClass.visit(this, table);
+        stringClass.visit(this, table);
+        for (ClassDecl c : prog.classDeclList) {
+            c.visit(this, table);
+        }
 
         // Perform main pass
+        table.pass = 3;
         systemClass.visit(this, table);
         printStreamClass.visit(this, table);
         stringClass.visit(this, table);
@@ -270,8 +293,23 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitClassDecl(ClassDecl cd, IdentificationTable table) {
-        if (table.curInInitialPass) { // First pass
-            // Add all public members to the table's publicMembers map
+        if (table.pass == 1) { // First pass
+            // Perform first-pass visitation to all members
+            for (FieldDecl field : cd.fieldDeclList) {
+                // This is the ONLY time fields will be visited!
+                field.visit(this, table);
+            }
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
+
+        } else if (table.pass == 2) {
+            // Visit all member methods so their names can be mangled
+            for (MethodDecl method : cd.methodDeclList) {
+                method.visit(this, table);
+            }
+
+            // Add all public fields to the table's publicMembers map (after mangling!)
             HashMap<String, MemberDecl> curPublicMembers = new HashMap<>();
             table.publicMembers.put(cd.name, curPublicMembers);
             for (FieldDecl field : cd.fieldDeclList) {
@@ -283,15 +321,6 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
                 if (!method.isPrivate) {
                     curPublicMembers.put(method.name, method);
                 }
-            }
-
-            // Perform first-pass visitation to all members
-            for (FieldDecl field : cd.fieldDeclList) {
-                // This is the ONLY time fields will be visited!
-                field.visit(this, table);
-            }
-            for (MethodDecl method : cd.methodDeclList) {
-                method.visit(this, table);
             }
 
         } else { // Primary pass
@@ -325,7 +354,7 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     @Override
     public Object visitFieldDecl(FieldDecl fd, IdentificationTable table) {
         // FieldDecls should ONLY be visited during the first pass!
-        if (!table.curInInitialPass) {
+        if (table.pass != 1) {
             throw new IllegalStateException(
                     "FieldDecls should ONLY be visited during the first pass!");
         }
@@ -338,10 +367,22 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitMethodDecl(MethodDecl md, IdentificationTable table) {
-        if (table.curInInitialPass) { // First pass
-
+        if (table.pass == 1) { // First pass
             // Visit return type
             md.getType().visit(this, table);
+
+        } else if (table.pass == 2) { // Second pass
+            // Visit parameters to get their types and build up an array of their types
+            int paramCount = md.parameterDeclList.size();
+            TypeDenoter[] types = new TypeDenoter[paramCount];
+            for (int i = 0; i < paramCount; ++i) {
+                ParameterDecl param = md.parameterDeclList.get(i);
+                param.visit(this, table);
+                types[i] = param.getType();
+            }
+
+            // Mangle the name of this method
+            md.name = mangle(md.name, types);
 
         } else { // Primary pass
             // Visit parameters
@@ -379,14 +420,17 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
 
     @Override
     public Object visitParameterDecl(ParameterDecl pd, IdentificationTable table) {
-        // Add this declaration to the table - assumes only the param map is in curLocalsAndParams
-        if (table.curLocals.peek().containsKey(pd.name)) {
-            throw error("Identification error - duplicate parameter name", pd.posn.line);
-        }
-        table.curLocals.peek().put(pd.name, pd);
+        if (table.pass == 2) { // First pass
+            // Visit the parameter's TypeDenoter
+            pd.getType().visit(this, table);
 
-        // Visit the parameter's TypeDenoter
-        pd.getType().visit(this, table);
+        } else { // Main pass
+            // Add this declaration to the table - assumes only the param map is in curLocalsAndParams
+            if (table.curLocals.peek().containsKey(pd.name)) {
+                throw error("Identification error - duplicate parameter name", pd.posn.line);
+            }
+            table.curLocals.peek().put(pd.name, pd);
+        }
 
         return null;
     }

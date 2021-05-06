@@ -25,4 +25,23 @@ public class BaseType extends TypeDenoter {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitBaseType(this, o);
     }
+
+    @Override
+    public String toString() {
+        switch (typeKind) {
+            case BOOLEAN:
+                return "boolean";
+            case ERROR:
+                return "error";
+            case INT:
+                return "int";
+            case UNSUPPORTED:
+                return "unsupported";
+            case VOID:
+                return "void";
+            default:
+                throw new IllegalStateException(
+                        "Tried to convert a BaseType with an illegal TypeKind to a string");
+        }
+    }
 }

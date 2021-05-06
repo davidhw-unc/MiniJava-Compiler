@@ -29,4 +29,9 @@ public class ClassType extends TypeDenoter {
     public void setDecl(ClassDecl decl) {
         this.decl = decl;
     }
+
+    @Override
+    public String toString() {
+        return className;
+    }
 }

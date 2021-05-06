@@ -507,8 +507,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
     @Override
     public Object visitLoopStmt(LoopStmt ls, Object arg) {
-        // TODO redo this to handle generalized loops
-
         int newLocalCount = (int) arg;
 
         // Emit instructions for the initializer

@@ -20,4 +20,9 @@ public class ArrayType extends TypeDenoter {
     public <A, R> R visit(Visitor<A, R> v, A o) {
         return v.visitArrayType(this, o);
     }
+
+    @Override
+    public String toString() {
+        return eltType.toString() + "[]";
+    }
 }
