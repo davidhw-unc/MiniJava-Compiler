@@ -16,6 +16,10 @@ public class StatementList implements Iterable<Statement> {
         slist.add(s);
     }
 
+    public void add(int i, Statement s) {
+        slist.add(i, s);
+    }
+
     public Statement get(int i) {
         return slist.get(i);
     }

@@ -673,8 +673,16 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
     }
 
     @Override
-    public Object visitWhileStmt(LoopStmt stmt, IdentificationTable table) {
-        // TODO redo this to handle generalized loops
+    public Object visitLoopStmt(LoopStmt stmt, IdentificationTable table) {
+        // Visit the statement of the initDecl or the statements of the initList, if one is present
+        if (stmt.getInitList() != null) {
+            for (Statement s : stmt.getInitList()) {
+                s.visit(this, table);
+            }
+        } else if (stmt.getInitDecl() != null) {
+            table.curLocals.push(new HashMap<>(table.curLocals.peek()));
+            stmt.getInitDecl().visit(this, table);
+        }
 
         // Visit conditional expression
         stmt.condExpr.visit(this, table);
@@ -692,6 +700,11 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         if (stmt.body instanceof VarDeclStmt) {
             error("A variable declaration cannot be the solitary statement in a branch of a"
                     + " conditional statement", stmt.body.posn.line);
+        }
+
+        // If initDecl was used for the initializer, pop a frame off the deque in table
+        if (stmt.getInitDecl() != null) {
+            table.curLocals.pop();
         }
 
         // Note: Java *allows* a method which will never return to not have any return statement,
@@ -1228,5 +1241,4 @@ public class ContextualAnalyzer implements Visitor<ContextualAnalyzer.Identifica
         // Do nothing, type is already defined
         return null;
     }
-
 }

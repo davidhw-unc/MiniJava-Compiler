@@ -177,8 +177,12 @@ public class Parser {
         return ref;
     }
 
-    @SuppressWarnings("incomplete-switch")
     private Statement parseStatement() throws SyntaxException {
+        return parseStatement(false);
+    }
+
+    @SuppressWarnings("incomplete-switch")
+    private Statement parseStatement(boolean forLoopAvoidNoSemicolonError) throws SyntaxException {
         Token first = scan.peek();
         Statement stmt = null;
         Kind firstKind = acceptOpt(LBRACE, RETURN, IF, WHILE, FOR);
@@ -282,7 +286,7 @@ public class Parser {
                     stmt = new AssignStmt(refr, parseExpression(), first.posn);
                     break;
             }
-            accept(SEMICOLON);
+            if (!forLoopAvoidNoSemicolonError) accept(SEMICOLON);
         } else {
             switch (firstKind) {
                 case LBRACE:
@@ -331,14 +335,14 @@ public class Parser {
                     VarDeclStmt initDecl = null;
                     if (acceptOpt(SEMICOLON) == null) {
                         // If there is, collect it
-                        Statement firstInitStmt = parseStatement();
+                        Statement firstInitStmt = parseStatement(true);
                         // Check for a comma- if we find one, this for loop uses an initializer list
                         Kind res = acceptOpt(COMMA);
                         if (res != null) {
                             initList = new StatementList();
                             initList.add(firstInitStmt);
                             do {
-                                initList.add(parseStatement());
+                                initList.add(parseStatement(true));
                             } while (acceptOpt(COMMA) != null);
                             // Validate that initList only contains appropriate statement types
                             // This exclusively includes AssignStmt, IxAssignStmt, and CallStmt
@@ -373,14 +377,53 @@ public class Parser {
 
                     // Parse the conditional
                     Expression condExpr;
+                    Token next = scan.peek();
                     if (acceptOpt(SEMICOLON) == null) {
-
+                        // If there is a conditional expr, parse it
+                        condExpr = parseExpression();
+                        accept(SEMICOLON);
                     } else {
-                        // If there's no conditional, just make the expression a true literal
-
+                        // If there's no conditional expr, just use a "true" literal
+                        condExpr = new LiteralExpr(new BooleanLiteral(
+                                new Token(TRUE, "true", next.posn.line, next.posn.startColumn)),
+                                next.posn);
                     }
 
-                    // TODO finish parsing for loops
+                    // Parse the update into a StatementList
+                    StatementList updateList = new StatementList();
+                    if (acceptOpt(RPAREN) == null) {
+                        do {
+                            updateList.add(parseStatement(true));
+                        } while (acceptOpt(COMMA) != null);
+                        // Validate that updateList only contains appropriate statement types
+                        // This exclusively includes AssignStmt, IxAssignStmt, and CallStmt
+                        for (Statement s : updateList) {
+                            if (!(s instanceof AssignStmt || s instanceof IxAssignStmt
+                                    || s instanceof CallStmt)) {
+                                throw parseError(
+                                        "A for statement can only use assignment or method "
+                                                + "call statements in its update section");
+                            }
+                        }
+                        accept(RPAREN);
+                    }
+
+                    // Parse the body
+                    Statement body = parseStatement(false);
+                    // Incorporate the update section into the body (at the end), if present
+                    if (updateList.size() > 0) {
+                        updateList.add(0, body);
+                        body = new BlockStmt(updateList, body.posn);
+                    }
+
+                    // Generate the LoopStatement
+                    if (initList != null) {
+                        stmt = new LoopStmt(initList, condExpr, body, first.posn);
+                    } else if (initDecl != null) {
+                        stmt = new LoopStmt(initDecl, condExpr, body, first.posn);
+                    } else {
+                        stmt = new LoopStmt(condExpr, body, first.posn);
+                    }
                     break;
             }
         }
@@ -542,8 +585,6 @@ public class Parser {
                     expr = new LiteralExpr(new IntLiteral(first), first.posn);
                     break;
                 case TRUE:
-                    expr = new LiteralExpr(new BooleanLiteral(first), first.posn);
-                    break;
                 case FALSE:
                     expr = new LiteralExpr(new BooleanLiteral(first), first.posn);
                     break;

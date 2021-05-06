@@ -47,7 +47,7 @@ public interface Visitor<ArgType, ResultType> {
 
     public ResultType visitIfStmt(IfStmt is, ArgType arg);
 
-    public ResultType visitWhileStmt(LoopStmt ws, ArgType arg);
+    public ResultType visitLoopStmt(LoopStmt ls, ArgType arg);
 
     // Expressions
     public ResultType visitUnaryExpr(UnaryExpr ue, ArgType arg);

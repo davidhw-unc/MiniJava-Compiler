@@ -17,6 +17,8 @@ public class LoopStmt extends Statement {
     private final VarDeclStmt initDecl;
     public Expression condExpr;
     public Statement body;
+    // The update section is simply combined into the end of the body via a wrapper BlockStmt
+    // This is done in the parser!
 
     private LoopStmt(StatementList initList, VarDeclStmt initDecl, Expression condExpr,
             Statement body, SourcePosition posn) {
@@ -32,12 +34,11 @@ public class LoopStmt extends Statement {
      * 
      * @param initList
      * @param condExpr
-     * @param updateList
      * @param body
      * @param posn
      */
-    public LoopStmt(StatementList initList, Expression condExpr, StatementList updateList,
-            Statement body, SourcePosition posn) {
+    public LoopStmt(StatementList initList, Expression condExpr, Statement body,
+            SourcePosition posn) {
         this(initList, null, condExpr, body, posn);
     }
 
@@ -46,45 +47,32 @@ public class LoopStmt extends Statement {
      * 
      * @param initDecl
      * @param condExpr
-     * @param updateList
      * @param body
      * @param posn
      */
-    public LoopStmt(VarDeclStmt initDecl, Expression condExpr, StatementList updateList,
-            Statement body, SourcePosition posn) {
+    public LoopStmt(VarDeclStmt initDecl, Expression condExpr, Statement body,
+            SourcePosition posn) {
         this(null, initDecl, condExpr, body, posn);
     }
 
     /**
-     * Represents a for loop with an empty initializer
+     * Represents a for loop with an empty initializer or a while loop
      * 
      * @param condExpr
-     * @param updateList
      * @param body
      * @param posn
      */
-    public LoopStmt(Expression condExpr, StatementList updateList, Statement body,
+    public LoopStmt(Expression condExpr, Statement body,
             SourcePosition posn) {
-        this(null, null, condExpr, body, posn);
-    }
-
-    /**
-     * Represents a while loop
-     * 
-     * @param condExpr
-     * @param body
-     * @param posn
-     */
-    public LoopStmt(Expression condExpr, Statement body, SourcePosition posn) {
         this(null, null, condExpr, body, posn);
     }
 
     @Override
     public <A, R> R visit(Visitor<A, R> v, A o) {
-        return v.visitWhileStmt(this, o);
+        return v.visitLoopStmt(this, o);
     }
 
-    public StatementList getInit() {
+    public StatementList getInitList() {
         return initList;
     }
 

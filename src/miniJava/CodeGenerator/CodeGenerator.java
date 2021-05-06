@@ -454,6 +454,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // TODO If condVal is unknown and has && or || as its top-level operator, we can optimize
 
+        // TODO merge in bb564ea now that I've just removed || and && being known based on their right value?
+
         // Visit the conditional expression- if it's not known at compile time, the value will be
         // put on the stack
         Integer condVal = (Integer) is.condExpr.visit(this, true);
@@ -504,11 +506,22 @@ public class CodeGenerator implements Visitor<Object, Object> {
     }
 
     @Override
-    public Object visitWhileStmt(LoopStmt ws, Object arg) {
+    public Object visitLoopStmt(LoopStmt ls, Object arg) {
         // TODO redo this to handle generalized loops
 
+        int newLocalCount = (int) arg;
+
+        // Emit instructions for the initializer
+        if (ls.getInitList() != null) {
+            for (Statement s : ls.getInitList()) {
+                s.visit(this, arg);
+            }
+        } else if (ls.getInitDecl() != null) {
+            ls.getInitDecl().visit(this, newLocalCount++);
+        }
+
         // Evaluate the conditional once to start
-        Integer initVal = (Integer) ws.condExpr.visit(this, true);
+        Integer initVal = (Integer) ls.condExpr.visit(this, true);
 
         // If the conditional was known to be false, we're done, so only continue if it is unknown
         // or known to be true
@@ -530,17 +543,17 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
             // Record the current code addr and emit code for the body
             int bodyStartAddr = Machine.nextInstrAddr();
-            ws.body.visit(this, arg);
+            ls.body.visit(this, newLocalCount);
 
             // Evaluate the conditional again, leave it on the stack, then JUMPIF back to the body
             // If the conditional is known to be true here, just JUMP back- this loop will repeat
             // indefinitely
             // If the conditional is (somehow) now known to be false, there's no need to even emit a
             // jump instruction
-            Integer condVal = (Integer) ws.condExpr.visit(this, true);
-            if (condVal == Machine.trueRep) {
+            Integer condVal = (Integer) ls.condExpr.visit(this, true);
+            if (condVal != null && condVal == Machine.trueRep) {
                 Machine.emit(Op.JUMP, Reg.CB, bodyStartAddr);
-            } else if (condVal != Machine.falseRep) {
+            } else if (condVal == null || condVal != Machine.falseRep) {
                 Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, bodyStartAddr);
             }
 
@@ -548,6 +561,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
             if (initSkipAddr != -1) {
                 Machine.patch(initSkipAddr, Machine.nextInstrAddr());
             }
+        }
+
+        // If initialization used initDecl, that variable needs to be POPped off the stack
+        if (ls.getInitDecl() != null) {
+            Machine.emit(Op.POP, 1);
         }
 
         // Mark that we are leaving a while loop
@@ -673,24 +691,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             if (left == null) {
                 // left isn't known, so it will already be on the stack
 
-                // If right is known, we can do one of two things based on its value:
-                if (right != null) {
-                    // If right == true, we can pop left off the stack and return true, since it
-                    // means this expr will always evaluate to true, but we still need the code
-                    // emitted here since evaluating left may have side effects
-                    if (right == Machine.trueRep) {
-                        if ((Boolean) arg) Machine.emit(Op.POP, 1);
-                        return Machine.trueRep;
-                    }
-
-                    // If right == false, we can just leave left's value on the stack and return
-                    // null- this expression's value will always just be left's value, but that
-                    // value isn't known until runtime
-                    return null;
-                }
-
-                // If right also isn't known we need to emit code that decides whether to visit
-                // right based on the value of left
+                // We need to emit code that decides whether to visit right based on left's value
 
                 // Emit a JUMPIF instruction that skips the evaluation of right if left is true,
                 // but first record the addr of that instruction so we can patch in the addr it's
@@ -699,10 +700,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 if ((Boolean) arg) Machine.emit(Op.JUMPIF, Machine.trueRep, Reg.CB, -1);
 
                 // Visit right so its code can be generated
-                // No need to force, since we already know right isn't known at compile time
-                be.rightExpr.visit(this, arg);
+                forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
 
-                // If right wasn't visited, we'll need to push a true onto the stack. If right WAS
+                // If right wasn't evaluated, we'll need to push a true onto the stack. If right WAS
                 // visited, we need to skip that instruction.
                 if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
                 if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
@@ -730,24 +730,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
             if (left == null) {
                 // left isn't known, so it will already be on the stack
 
-                // If right is known, we can do one of two things based on its value:
-                if (right != null) {
-                    // If right == false, we can pop left off the stack and return false, since it
-                    // means this expr will always evaluate to false, but we still need the code
-                    // emitted here since evaluating left may have side effects
-                    if (right == Machine.falseRep) {
-                        if ((Boolean) arg) Machine.emit(Op.POP, 1);
-                        return Machine.falseRep;
-                    }
-
-                    // If right == true, we can just leave left's value on the stack and return
-                    // null- this expression's value will always just be left's value, but that
-                    // value isn't known until runtime
-                    return null;
-                }
-
-                // If right also isn't known we need to emit code that decides whether to visit
-                // right based on the value of left
+                // We need to emit code that decides whether to visit right based on left's value
 
                 // Emit a JUMPIF instruction that skips the evaluation of right if left is false,
                 // but first record the addr of that instruction so we can patch in the addr it's
@@ -756,11 +739,10 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 if ((Boolean) arg) Machine.emit(Op.JUMPIF, Machine.falseRep, Reg.CB, -1);
 
                 // Visit right so its code can be generated
-                // No need to force, since we already know right isn't known at compile time
-                be.rightExpr.visit(this, arg);
+                forcePushResult((Integer) be.rightExpr.visit(this, arg), arg);
 
-                // If right wasn't visited, we'll need to push a false onto the stack. If right WAS
-                // visited, we need to skip that instruction.
+                // If right wasn't evaluated, we'll need to push a false onto the stack. If right
+                // WAS visited, we need to skip that instruction.
                 if ((Boolean) arg) Machine.emit(Op.JUMP, Reg.CB, Machine.nextInstrAddr() + 2);
                 if ((Boolean) arg) Machine.patch(jumpInstToPatch, Machine.nextInstrAddr());
                 if ((Boolean) arg) Machine.emit(Op.LOADL, Machine.falseRep);
@@ -1200,7 +1182,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
     @Override
     public Object visitBooleanLiteral(BooleanLiteral bl, Object arg) {
         // Return Machine.trueRep for "true" and Machine.falseRep for "false"
-        return boolToInt(bl.spelling.equals("true"));
+        return boolToInt(bl.kind == TRUE);
     }
-
 }
