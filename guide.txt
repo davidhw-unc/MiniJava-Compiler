@@ -1,4 +1,97 @@
-# Scope
+# David White - Compiler Guide
+
+## Scope
 
 I have (as far as I'm aware) successfully implemented all the base requirements for
 PA4, and my compiler passes all the tests provided for that checkpoint. I've also
+implemented several extensions, as follows:
+
+###  `for` Loops
+
+[Based on the official Java * language specification found here](https://docs.oracle.com/javase/specs/jls/se8/html/jls-14.html#jls-LocalVariableDeclaration), I have
+implemented `for` loops that adhere to the official grammar (minus any elements that aren't
+supported in miniJava). This means that the `initializer`
+portion can be either a single variable declaration or a comma-separated list of variable assignments and
+method calls, and the `update` portion can only be such a comma-separated list.
+(The official specification also allows new object expressions in these lists, but since I
+haven't implemented constructors yet and miniJava doesn't allow standalone new object declarations
+to act as statements, I didn't include this.) I implemented the for statements by expanding the 
+`WhileStmt` class we were given into a `LoopStmt` class that supports both, with the `initializer`
+being executed before the loop if present and the `update` portion being incorporated at the end
+of the body.
+
+### Improved code generation in `if` and `while` statements
+
+Top-level BinaryExpressions with either && or || as their operator are much more efficient
+in their jumps, with each JUMPIF going directly to the correct branch of code if its directly within
+an `if` or `while` statement. I ran out of time for adding improvements to nested BinaryOperators. I
+also implemented ternary operators on my own, but have not applied these optimizations to them yet.
+
+Additionally, I have optimized expression evaluation in another way: Any expression whose value is
+trivially knowable at compile time is simplified to its known value. For instance, the expression
+`5 + 7 * 123 - 8` is simplified by the compiler to just be `858`. Here's a (non-exhaustive) list of the
+conditions the compiler follows:
+
+- Literals are always known at compile time
+- The return value of a method call is never known at compile time
+- The value of a unary expression is known at compile time if the value of its single operand is known
+at compile time
+- The value of a binary expression is known at compile time if the values of both operands are known at compile time
+    - This even applies to `||` and `&&`- even though they can be determined if the right-hand operand is
+known at compile time, the left-hand operand may have side effects
+    - The only exception is if the left operand is the one that's known- a `||` where the left is known to be
+`true` can be simplified to `true` itself, and vice versa for `&&`
+- Etc.
+
+### Overloaded Methods
+
+I have implemented overloaded methods using name mangling. Essentially, as one of my initial passes in
+the contextual analysis stage, anywhere a method's name is used (both declarations and calls) the name is
+changed to a version with the types of the parameters appended to the end. These types are separated by
+the `-` character, which is normally an illegal character for miniJava identifiers, thus ensuring that
+these new mangled names don't conflict with any existing user-defined names.
+
+As an example, take the following method declaration:
+
+```Java
+public class Foo {
+    public static void bar(int[] bar, Foo baz) {
+        /* ... */
+    }
+}
+```
+
+After name mangling is carried out, the method formerly known as `bar` would be identified as
+`bar-int[]-Foo`. Since this is carried out right before the primary CA pass, these names will
+be used everywhere in CA, allowing for the correct connection of calls to declarations.
+
+### Other changes not laid out in PA5 (`%` and ternary expressions)
+
+As mentioned above, I have implemented ternary expressions in my compiler. I've also implemented the
+modulus operator. I know neither was listed as one of the extra credit extensions in PA5, but I thought
+I might as well list them anyway.
+
+## Summary of AST Changes
+
+- Renamed several Visitor methods (for example, `visitQRef` became `visitQualRef`)
+- Added `toString` methods to the `TypeDenoter` classes for use in name mangling
+- Added `Typed` interface to represent tree nodes that had an associated type during contextual analysis
+- As mentioned above, turned `WhileStmt` into `LoopStmt` to support `for` loops
+- Added numerous minor fields for tracking things during code generation- for example,
+all Declarations have a `data` field typically used for tracking the offset at which they are stored in memory
+- Added `MethodCaller` interface to unify handling of `CallExpr` and `CallStmt`
+- Added `TernaryExpr`
+- Added a `value` field to `LocalVarDecl` for tracking if the variable's value is currently known during
+code generation
+
+## Tests
+
+These can be run with `Checkpoint5Mine.java` in the same fashion as the checkpoint testers
+
+- fail001 and fail002 are `for` statment fail cases
+- fail101 and fail102 are method overloading fail cases
+- pass001-pass005 are `for` statement pass cases
+- pass101 is a method overloading pass case
+
+I didn't write test cases for the conditional optimizations since I largely had to test that by examining the
+dissasembled .asm files, and the compiler still passes all the checkpoint tests so the code should still work.
